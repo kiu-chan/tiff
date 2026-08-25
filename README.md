@@ -1,38 +1,43 @@
 # tiff
 
-Dart library for reading and writing TIFF and BigTIFF image files — tags, IFDs, strips/tiles, and common compression schemes.
-
-## Status
-
-Phases 1-5 implemented: reading and writing Classic TIFF and BigTIFF, strip
-and tile data, common compression schemes (including CCITT fax and, via an
-optional adapter, JPEG), GeoTIFF/EXIF/GPS metadata, and RGBA color
-conversion.
+A Dart library for reading and writing TIFF and BigTIFF image files: tags
+and IFDs, strip/tile pixel data, common compression schemes, color
+conversion, and GeoTIFF/EXIF metadata — for files ranging from a few
+kilobytes to multi-gigabyte BigTIFF rasters.
 
 ## Features
 
-- [x] Classic TIFF (32-bit offsets)
-- [x] BigTIFF (64-bit offsets), incl. auto-promotion from Classic on write
-- [x] IFD / tag parsing (all baseline tag types, incl. BigTIFF LONG8/SLONG8/IFD8)
-- [x] Strip decoding and encoding
-- [x] Tile decoding and encoding (incl. cropped/padded edge tiles)
-- [x] Compression: None, PackBits, LZW, Deflate/ZIP (read and write);
-      CCITT Group 3/4 fax (read only — see note below); JPEG (read only,
-      via the optional `package:image` adapter)
-- [x] Horizontal differencing predictor (read and write)
-- [x] RGBA8 color conversion: WhiteIsZero/BlackIsZero, RGB(+alpha), Palette,
-      CMYK, non-subsampled YCbCr
-- [x] File-backed decoding without loading the whole file into memory
-      (`package:tiff/tiff_io.dart`)
-- [x] Region-of-interest decoding (skip strips/tiles outside a requested crop)
-- [x] Multi-page writing
-- [x] GeoTIFF metadata (ModelPixelScale/Tiepoint/Transformation, GeoKeyDirectory)
-- [x] EXIF / GPS sub-IFD parsing
-- [x] Optional `package:image` bridge (`package:tiff/tiff_image_adapter.dart`):
-      convert to/from `image.Image`, and decode JPEG-compressed TIFF pages
+- Classic TIFF (32-bit offsets) and BigTIFF (64-bit offsets), with automatic
+  promotion to BigTIFF on write when the pixel data would exceed Classic's
+  4 GiB offset limit
+- Full IFD/tag parsing, including every baseline TIFF 6.0 tag type plus
+  BigTIFF's LONG8/SLONG8/IFD8
+- Strip and tile pixel data, reading and writing (edge tiles are cropped on
+  read and zero-padded on write automatically)
+- Compression: None, PackBits, LZW, and Deflate/ZIP, read and write; CCITT
+  Group 3/4 fax and JPEG, read only (see [Limitations](#limitations))
+- Horizontal differencing predictor, read and write
+- RGBA8 color conversion: WhiteIsZero/BlackIsZero, RGB(+alpha),
+  Palette/ColorMap, CMYK, and non-subsampled YCbCr
+- File-backed decoding that streams strips/tiles from disk instead of
+  loading a whole file into memory (`package:tiff/tiff_io.dart`), plus
+  region-of-interest decoding that skips chunks outside a requested crop
+- Multi-page reading and writing via IFD chains
+- GeoTIFF, EXIF, and GPS metadata parsing
+- An optional `package:image` bridge (`package:tiff/tiff_image_adapter.dart`)
+  for converting to/from `image.Image` and for decoding JPEG-compressed pages
 
-CCITT Group 3/4 (Compression 2/3/4) is decode-only — virtually no modern
-software *writes* new Group 3/4 data, so encoding it isn't implemented.
+## Limitations
+
+- **CCITT Group 3/4 fax (Compression 2/3/4) is decode-only.** Virtually no
+  modern software writes new Group 3/4 data, so encoding it isn't
+  implemented.
+- **JPEG-in-TIFF (Compression 6/7) decoding requires the optional adapter**
+  (`package:tiff/tiff_image_adapter.dart`) — TIFF's baseline spec has no
+  bundled JPEG codec, so this package borrows `package:image`'s. Writing
+  JPEG-compressed TIFF is not supported.
+- Only chunky (interleaved) `PlanarConfiguration`, and a single
+  `BitsPerSample` value uniform across channels, are supported.
 
 ## Getting started
 
