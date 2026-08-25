@@ -11,6 +11,11 @@ Initial release.
   are cropped on read and zero-padded on write automatically).
 - Compression: None, PackBits, LZW, and Deflate/ZIP, read and write; CCITT
   Group 3/4 fax and JPEG, read only (see the README for details on both).
+  LZW decoding also transparently handles "old-style" (pre-TIFF6, LSB-first)
+  data from legacy encoders, auto-detected the same way libtiff does.
+  JPEG-in-TIFF decoding correctly treats the JPEG codec's own YCbCr->RGB
+  conversion as final, rather than re-applying the PhotometricInterpretation
+  tag's YCbCr transform on top of already-RGB samples.
 - Horizontal differencing predictor, read and write.
 - RGBA8 color conversion covering WhiteIsZero/BlackIsZero, RGB(+alpha),
   Palette/ColorMap, CMYK, and non-subsampled YCbCr.

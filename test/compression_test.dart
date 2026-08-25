@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:archive/archive.dart';
@@ -35,6 +36,32 @@ void main() {
       final decoded = LzwCodec.decode(LzwCodec.encode(input));
       expect(decoded, input);
     });
+
+    test(
+      'decodes a real "old-style" (LSB-first, no early change) LZW TIFF',
+      () {
+        // quad-lzw-compat.tiff, from libtiff's own test suite, is a regression
+        // fixture specifically for the legacy pre-TIFF6 LZW packing that a
+        // handful of old encoders wrote (and that libtiff itself special-cases
+        // as "LZW_COMPAT"). Expected pixel values below were cross-checked
+        // against macOS's own ImageIO TIFF decoder (via `sips`) rendering the
+        // same file identically.
+        final bytes = File(
+          'test/fixtures/quad-lzw-compat.tiff',
+        ).readAsBytesSync();
+        final page = TiffDecoder.decode(bytes).images.single;
+        final raster = page.decode();
+
+        int r(int x, int y) => raster.sampleAt(x, y, 0);
+        int g(int x, int y) => raster.sampleAt(x, y, 1);
+        int b(int x, int y) => raster.sampleAt(x, y, 2);
+
+        expect((r(0, 0), g(0, 0), b(0, 0)), (0, 0, 0)); // black background
+        expect((r(250, 90), g(250, 90), b(250, 90)), (101, 48, 88));
+        expect((r(350, 60), g(350, 60), b(350, 60)), (208, 6, 202));
+        expect((r(450, 300), g(450, 300), b(450, 300)), (0, 140, 188));
+      },
+    );
   });
 
   group('PackBitsCodec (unit)', () {

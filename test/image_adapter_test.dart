@@ -107,6 +107,59 @@ void main() {
       expect(decoded.samples, reference);
     });
 
+    test(
+      'decodeRgba8() does not re-apply YCbCr when PhotometricInterpretation says so',
+      () {
+        // Real-world JPEG-in-TIFF files almost always declare
+        // PhotometricInterpretation=YCbCr (6) even though a JPEG decoder
+        // already converts to RGB internally — decodeRgba8() must not treat
+        // those already-RGB samples as YCbCr and convert them a second time.
+        TiffImageAdapter.enableJpegSupport();
+
+        final source = img.Image(width: 2, height: 2, numChannels: 3);
+        source.setPixelRgb(0, 0, 200, 30, 30);
+        source.setPixelRgb(1, 0, 30, 200, 30);
+        source.setPixelRgb(0, 1, 30, 30, 200);
+        source.setPixelRgb(1, 1, 128, 128, 128);
+        final jpegBytes = Uint8List.fromList(
+          img.encodeJpg(source, quality: 100),
+        );
+
+        final builder = TiffFixtureBuilder()
+          ..addTag(TiffTagId.imageWidth, TiffTagType.tShort, [2])
+          ..addTag(TiffTagId.imageLength, TiffTagType.tShort, [2])
+          ..addTag(TiffTagId.bitsPerSample, TiffTagType.tShort, [8])
+          ..addTag(TiffTagId.samplesPerPixel, TiffTagType.tShort, [3])
+          ..addTag(TiffTagId.compression, TiffTagType.tShort, [7])
+          ..addTag(TiffTagId.photometricInterpretation, TiffTagType.tShort, [
+            6,
+          ]) // YCbCr
+          ..addStripOffsetsTag(TiffTagId.stripOffsets, TiffTagType.tLong, [
+            jpegBytes.length,
+          ])
+          ..addTag(TiffTagId.stripByteCounts, TiffTagType.tLong, [
+            jpegBytes.length,
+          ])
+          ..setPixelData(jpegBytes);
+
+        final page = TiffDecoder.decode(builder.build()).images.single;
+        expect(page.metadata.photometric, TiffPhotometric.ycbcr);
+
+        final rgba = page.decodeRgba8();
+        final referenceRgb = img
+            .decodeJpg(jpegBytes)!
+            .getBytes(order: img.ChannelOrder.rgb);
+        final expectedRgba = Uint8List(referenceRgb.length ~/ 3 * 4);
+        for (var p = 0; p < referenceRgb.length ~/ 3; p++) {
+          expectedRgba[p * 4] = referenceRgb[p * 3];
+          expectedRgba[p * 4 + 1] = referenceRgb[p * 3 + 1];
+          expectedRgba[p * 4 + 2] = referenceRgb[p * 3 + 2];
+          expectedRgba[p * 4 + 3] = 255;
+        }
+        expect(rgba, expectedRgba);
+      },
+    );
+
     test('throws a clear error when no JPEG decoder has been registered', () {
       JpegCodecHook.decoder = null;
       final builder = TiffFixtureBuilder()

@@ -20,10 +20,27 @@ class ColorTransform {
     TiffImageMetadata metadata,
     TiffRasterBuffer raster,
   ) {
-    final photometric = metadata.photometric;
+    // JPEG decoding (Compression 6/7) already produces final RGB (or
+    // grayscale) samples internally — a JPEG codec always converts YCbCr to
+    // RGB itself, regardless of what PhotometricInterpretation says the
+    // *pre-compression* color space was (JPEG-in-TIFF almost always
+    // declares YCbCr there, per the TIFF/JPEG Technical Note, even though
+    // what comes out of decode() is RGB). Trusting the raw tag here would
+    // re-apply a YCbCr->RGB transform to already-RGB data.
+    final isJpeg = metadata.compression == 6 || metadata.compression == 7;
+    final photometric = isJpeg
+        ? (raster.samplesPerPixel == 1
+              ? TiffPhotometric.blackIsZero
+              : TiffPhotometric.rgb)
+        : metadata.photometric;
     if (photometric == null) {
       throw const TiffException(
         'Cannot convert to RGBA: PhotometricInterpretation tag is missing',
+      );
+    }
+    if (isJpeg && raster.samplesPerPixel != 1 && raster.samplesPerPixel != 3) {
+      throw TiffException(
+        'JPEG-in-TIFF with ${raster.samplesPerPixel} samples/pixel is not supported for RGBA conversion',
       );
     }
 

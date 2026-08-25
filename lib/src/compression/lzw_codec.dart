@@ -14,16 +14,41 @@ const int _maxCode = 4096;
 /// early ("early change"): 9-bit codes cover 0-510 (not 0-511), 10-bit
 /// covers 511-1022, etc. This off-by-one originates from the original TIFF
 /// LZW implementation and has been the de facto standard ever since — every
-/// real-world encoder (libtiff, Photoshop, GDAL, ...) relies on it.
+/// modern encoder (libtiff, Photoshop, GDAL, ...) relies on it.
+///
+/// [decode] also transparently handles "old-style" LZW — a handful of
+/// pre-TIFF6 encoders packed codes LSB-first with no early change; real
+/// files in the wild still use it, and libtiff itself special-cases it
+/// (`LZW_COMPAT`). It's auto-detected, never something a caller opts into.
 ///
 /// [encode] exists mainly so the decoder can be verified by round-trip in
 /// tests; it is a correct, self-consistent LZW encoder but does not attempt
-/// to bit-match any particular external encoder's table-reset heuristics.
+/// to bit-match any particular external encoder's table-reset heuristics,
+/// and it only ever writes the standard (not old-style) packing.
 class LzwCodec {
   const LzwCodec._();
 
   static Uint8List decode(Uint8List input) {
-    final reader = _LzwBitReader(input);
+    // A small, long-lived compatibility wrinkle: some old TIFF encoders
+    // (pre-dating the spec settling on MSB-first packing) wrote codes
+    // LSB-first instead, with no "early change" bit-width bump. A
+    // conformant stream's first code is always the 256 (Clear) code, so
+    // detecting which packing produced these bytes is unambiguous — under
+    // LSB-first packing, 256's low 8 bits (all zero) land entirely in byte
+    // 0 and its 9th bit lands as bit 0 of byte 1. This is the same
+    // heuristic libtiff itself uses (LZWPreDecode's "old bit-reversed
+    // codes" check).
+    final isOldStyle =
+        input.length >= 2 && input[0] == 0 && (input[1] & 0x1) != 0;
+    return isOldStyle
+        ? _decodeCore(_LzwBitReaderLsb(input), earlyChange: false)
+        : _decodeCore(_LzwBitReaderMsb(input), earlyChange: true);
+  }
+
+  static Uint8List _decodeCore(
+    _LzwBitReader reader, {
+    required bool earlyChange,
+  }) {
     final output = BytesBuilder();
     var table = _newTable();
     var nextCode = _firstCode;
@@ -55,7 +80,7 @@ class LzwCodec {
       if (oldEntry != null && nextCode < _maxCode) {
         table[nextCode] = [...oldEntry, entry.first];
         nextCode++;
-        final maxCodeForWidth = (1 << bitWidth) - 2;
+        final maxCodeForWidth = (1 << bitWidth) - (earlyChange ? 2 : 1);
         if (nextCode > maxCodeForWidth && bitWidth < 12) bitWidth++;
       }
 
@@ -141,15 +166,23 @@ class LzwCodec {
   }
 }
 
-/// Reads a fixed number of bits at a time, MSB-first, from a byte buffer.
-class _LzwBitReader {
+/// Reads a fixed number of bits at a time from a byte buffer — either
+/// MSB-first (the TIFF 6.0 standard) or LSB-first (see [LzwCodec.decode]'s
+/// "old-style" compatibility handling).
+abstract class _LzwBitReader {
+  int? readBits(int n);
+}
+
+/// MSB-first bit reader: the TIFF 6.0 standard packing.
+class _LzwBitReaderMsb implements _LzwBitReader {
   final Uint8List data;
   int _bytePos = 0;
   int _bitBuffer = 0;
   int _bitCount = 0;
 
-  _LzwBitReader(this.data);
+  _LzwBitReaderMsb(this.data);
 
+  @override
   int? readBits(int n) {
     while (_bitCount < n) {
       if (_bytePos >= data.length) {
@@ -162,6 +195,33 @@ class _LzwBitReader {
     final value = (_bitBuffer >> shift) & ((1 << n) - 1);
     _bitCount -= n;
     _bitBuffer &= (1 << _bitCount) - 1;
+    return value;
+  }
+}
+
+/// LSB-first bit reader, for "old-style" LZW data (a handful of TIFF
+/// encoders predating the spec settling on MSB-first packing). Ported from
+/// libtiff's `GetNextCodeCompat` macro.
+class _LzwBitReaderLsb implements _LzwBitReader {
+  final Uint8List data;
+  int _bytePos = 0;
+  int _bitBuffer = 0;
+  int _bitCount = 0;
+
+  _LzwBitReaderLsb(this.data);
+
+  @override
+  int? readBits(int n) {
+    while (_bitCount < n) {
+      if (_bytePos >= data.length) {
+        return null;
+      }
+      _bitBuffer |= data[_bytePos++] << _bitCount;
+      _bitCount += 8;
+    }
+    final value = _bitBuffer & ((1 << n) - 1);
+    _bitBuffer >>= n;
+    _bitCount -= n;
     return value;
   }
 }
