@@ -39,7 +39,8 @@ class FileByteSource implements TiffByteSource {
   Uint8List readBytes(int offset, int count) {
     if (offset < 0 || count < 0 || offset + count > _length) {
       throw TiffException(
-          'Attempted to read past the end of the file (offset=$offset, count=$count, length=$_length)');
+        'Attempted to read past the end of the file (offset=$offset, count=$count, length=$_length)',
+      );
     }
     final windowEnd = _windowStart + _window.length;
     if (offset < _windowStart || offset + count > windowEnd) {

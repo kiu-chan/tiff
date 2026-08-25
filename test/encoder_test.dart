@@ -110,7 +110,24 @@ void main() {
       expect(image.decode().samples, samples);
       final rgba = image.decodeRgba8();
       // index0 -> (red=0, green=65535, blue=0) = green; index1 -> (255,0,0) = red.
-      expect(rgba, [0, 255, 0, 255, 255, 0, 0, 255, 255, 0, 0, 255, 0, 255, 0, 255]);
+      expect(rgba, [
+        0,
+        255,
+        0,
+        255,
+        255,
+        0,
+        0,
+        255,
+        255,
+        0,
+        0,
+        255,
+        0,
+        255,
+        0,
+        255,
+      ]);
     });
 
     test('multi-page files chain IFDs correctly', () {
@@ -208,23 +225,39 @@ void main() {
 
   group('BigTiffPromotion (unit)', () {
     test('stays Classic below the safety-margined 4 GiB threshold', () {
-      expect(BigTiffPromotion.shouldUseBigTiff(totalPixelDataBytes: 1024), isFalse);
+      expect(
+        BigTiffPromotion.shouldUseBigTiff(totalPixelDataBytes: 1024),
+        isFalse,
+      );
     });
 
     test('auto-promotes once total pixel data approaches 4 GiB', () {
       expect(
-        BigTiffPromotion.shouldUseBigTiff(totalPixelDataBytes: BigTiffPromotion.classicOffsetLimit),
+        BigTiffPromotion.shouldUseBigTiff(
+          totalPixelDataBytes: BigTiffPromotion.classicOffsetLimit,
+        ),
         isTrue,
       );
     });
 
-    test('an explicit forceBigTiff overrides the size heuristic either way', () {
-      expect(BigTiffPromotion.shouldUseBigTiff(totalPixelDataBytes: 1024, forceBigTiff: true), isTrue);
-      expect(
-        BigTiffPromotion.shouldUseBigTiff(
-            totalPixelDataBytes: BigTiffPromotion.classicOffsetLimit, forceBigTiff: false),
-        isFalse,
-      );
-    });
+    test(
+      'an explicit forceBigTiff overrides the size heuristic either way',
+      () {
+        expect(
+          BigTiffPromotion.shouldUseBigTiff(
+            totalPixelDataBytes: 1024,
+            forceBigTiff: true,
+          ),
+          isTrue,
+        );
+        expect(
+          BigTiffPromotion.shouldUseBigTiff(
+            totalPixelDataBytes: BigTiffPromotion.classicOffsetLimit,
+            forceBigTiff: false,
+          ),
+          isFalse,
+        );
+      },
+    );
   });
 }

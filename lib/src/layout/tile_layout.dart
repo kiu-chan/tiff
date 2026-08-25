@@ -19,8 +19,11 @@ class TileLayout {
   static TiffRasterBuffer decode({
     required TiffByteReader reader,
     required TiffImageMetadata metadata,
-  }) =>
-      decodeRegion(reader: reader, metadata: metadata, region: TiffRegion.fullImage(metadata));
+  }) => decodeRegion(
+    reader: reader,
+    metadata: metadata,
+    region: TiffRegion.fullImage(metadata),
+  );
 
   /// Decodes only [region], skipping every tile that doesn't overlap it —
   /// entirely, including the disk/network read behind [reader.readBytes] —
@@ -46,11 +49,15 @@ class TileLayout {
     final tilesDown = (height + tileLength - 1) ~/ tileLength;
     if (tileOffsets.length != tilesAcross * tilesDown) {
       throw TiffException(
-          'Expected ${tilesAcross * tilesDown} tiles (${tilesAcross}x$tilesDown), found ${tileOffsets.length}');
+        'Expected ${tilesAcross * tilesDown} tiles (${tilesAcross}x$tilesDown), found ${tileOffsets.length}',
+      );
     }
 
     final regionRowLength = region.width * samplesPerPixel;
-    final samples = List<int>.filled(region.width * region.height * samplesPerPixel, 0);
+    final samples = List<int>.filled(
+      region.width * region.height * samplesPerPixel,
+      0,
+    );
 
     final tileMinX = region.x ~/ tileWidth;
     final tileMaxX = (region.x + region.width - 1) ~/ tileWidth;
@@ -60,7 +67,10 @@ class TileLayout {
     for (var ty = tileMinY; ty <= tileMaxY; ty++) {
       for (var tx = tileMinX; tx <= tileMaxX; tx++) {
         final tileIndex = ty * tilesAcross + tx;
-        final compressedBytes = reader.readBytes(tileOffsets[tileIndex], tileByteCounts[tileIndex]);
+        final compressedBytes = reader.readBytes(
+          tileOffsets[tileIndex],
+          tileByteCounts[tileIndex],
+        );
 
         final tileSamples = ChunkDecoder.decodeChunk(
           compressedBytes: compressedBytes,
@@ -82,15 +92,25 @@ class TileLayout {
         final tileValidHeight = math.min(tileLength, height - originY);
 
         final overlapX0 = math.max(originX, region.x);
-        final overlapX1 = math.min(originX + tileValidWidth, region.x + region.width);
+        final overlapX1 = math.min(
+          originX + tileValidWidth,
+          region.x + region.width,
+        );
         final overlapY0 = math.max(originY, region.y);
-        final overlapY1 = math.min(originY + tileValidHeight, region.y + region.height);
+        final overlapY1 = math.min(
+          originY + tileValidHeight,
+          region.y + region.height,
+        );
         if (overlapX1 <= overlapX0 || overlapY1 <= overlapY0) continue;
 
         final overlapLen = (overlapX1 - overlapX0) * samplesPerPixel;
         for (var row = overlapY0; row < overlapY1; row++) {
-          final srcStart = ((row - originY) * tileWidth + (overlapX0 - originX)) * samplesPerPixel;
-          final destStart = (row - region.y) * regionRowLength + (overlapX0 - region.x) * samplesPerPixel;
+          final srcStart =
+              ((row - originY) * tileWidth + (overlapX0 - originX)) *
+              samplesPerPixel;
+          final destStart =
+              (row - region.y) * regionRowLength +
+              (overlapX0 - region.x) * samplesPerPixel;
           for (var i = 0; i < overlapLen; i++) {
             samples[destStart + i] = tileSamples[srcStart + i];
           }

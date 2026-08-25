@@ -10,15 +10,26 @@ class TiffRegion {
   final int width;
   final int height;
 
-  const TiffRegion({required this.x, required this.y, required this.width, required this.height});
+  const TiffRegion({
+    required this.x,
+    required this.y,
+    required this.width,
+    required this.height,
+  });
 
   factory TiffRegion.fullImage(TiffImageMetadata metadata) =>
       TiffRegion(x: 0, y: 0, width: metadata.width, height: metadata.height);
 
   void validateWithin(TiffImageMetadata metadata) {
-    if (x < 0 || y < 0 || width <= 0 || height <= 0 || x + width > metadata.width || y + height > metadata.height) {
+    if (x < 0 ||
+        y < 0 ||
+        width <= 0 ||
+        height <= 0 ||
+        x + width > metadata.width ||
+        y + height > metadata.height) {
       throw TiffException(
-          'Region (x=$x, y=$y, ${width}x$height) is out of bounds for a ${metadata.width}x${metadata.height} image');
+        'Region (x=$x, y=$y, ${width}x$height) is out of bounds for a ${metadata.width}x${metadata.height} image',
+      );
     }
   }
 }

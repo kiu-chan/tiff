@@ -10,11 +10,14 @@ class LayoutCommon {
   static int uniformBitsPerSample(TiffImageMetadata metadata) {
     if (metadata.planarConfiguration == TiffPlanarConfiguration.planar) {
       throw const TiffException(
-          'Planar configuration is not supported yet (chunky/interleaved data only)');
+        'Planar configuration is not supported yet (chunky/interleaved data only)',
+      );
     }
     final bitsSet = metadata.bitsPerSample.toSet();
     if (bitsSet.length > 1) {
-      throw const TiffException('Differing BitsPerSample per channel is not supported yet');
+      throw const TiffException(
+        'Differing BitsPerSample per channel is not supported yet',
+      );
     }
     return metadata.bitsPerSample.isNotEmpty ? metadata.bitsPerSample.first : 1;
   }

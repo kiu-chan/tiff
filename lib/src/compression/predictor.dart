@@ -36,7 +36,8 @@ class Predictor {
     }
 
     throw TiffException(
-        'Horizontal predictor is only supported for 8/16-bit samples (got $bitsPerSample-bit)');
+      'Horizontal predictor is only supported for 8/16-bit samples (got $bitsPerSample-bit)',
+    );
   }
 
   /// The write-side inverse of [undoHorizontalDifferencing]: turns raw
@@ -71,6 +72,7 @@ class Predictor {
     }
 
     throw TiffException(
-        'Horizontal predictor is only supported for 8/16-bit samples (got $bitsPerSample-bit)');
+      'Horizontal predictor is only supported for 8/16-bit samples (got $bitsPerSample-bit)',
+    );
   }
 }

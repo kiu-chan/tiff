@@ -18,4 +18,5 @@ export 'src/io/file_byte_source.dart' show FileByteSource;
 /// [TiffImage.decodeRegion]) are actually read from disk.
 ///
 /// Call [TiffDocument.close] when done to release the file handle.
-TiffDocument decodeTiffFile(File file) => TiffDecoder.decodeSource(FileByteSource.open(file));
+TiffDocument decodeTiffFile(File file) =>
+    TiffDecoder.decodeSource(FileByteSource.open(file));

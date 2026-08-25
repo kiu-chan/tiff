@@ -72,7 +72,9 @@ class LzwCodec {
     final writer = _LzwBitWriter();
     var bitWidth = 9;
     var nextCode = _firstCode;
-    var table = <String, int>{for (var i = 0; i < 256; i++) String.fromCharCode(i): i};
+    var table = <String, int>{
+      for (var i = 0; i < 256; i++) String.fromCharCode(i): i,
+    };
 
     // A decoder only learns of a new dictionary entry while decoding the
     // code *after* the one that revealed it (it needs that code's first
@@ -116,7 +118,9 @@ class LzwCodec {
         table[next] = nextCode;
         nextCode++;
         final maxCodeForWidth = (1 << bitWidth) - 2;
-        if (nextCode > maxCodeForWidth && bitWidth < 12 && scheduledWidth == null) {
+        if (nextCode > maxCodeForWidth &&
+            bitWidth < 12 &&
+            scheduledWidth == null) {
           scheduledWidth = bitWidth + 1;
           scheduledDelay = 1;
         }

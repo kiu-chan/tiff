@@ -35,7 +35,9 @@ class PackBitsCodec {
     var i = 0;
     while (i < n) {
       var runLength = 1;
-      while (i + runLength < n && input[i + runLength] == input[i] && runLength < 128) {
+      while (i + runLength < n &&
+          input[i + runLength] == input[i] &&
+          runLength < 128) {
         runLength++;
       }
       if (runLength >= 2) {
@@ -50,7 +52,9 @@ class PackBitsCodec {
       i++;
       while (i < n && literalLength < 128) {
         var nextRunLength = 1;
-        while (i + nextRunLength < n && input[i + nextRunLength] == input[i] && nextRunLength < 128) {
+        while (i + nextRunLength < n &&
+            input[i + nextRunLength] == input[i] &&
+            nextRunLength < 128) {
           nextRunLength++;
         }
         if (nextRunLength >= 2) break;

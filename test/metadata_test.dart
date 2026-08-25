@@ -32,7 +32,14 @@ void main() {
       _addMinimalImageTags(builder);
       builder
         ..addDoubleTag(TiffTagId.modelPixelScale, [2.0, 2.0, 0.0])
-        ..addDoubleTag(TiffTagId.modelTiepoint, [0.0, 0.0, 0.0, 500000.0, 4000000.0, 0.0])
+        ..addDoubleTag(TiffTagId.modelTiepoint, [
+          0.0,
+          0.0,
+          0.0,
+          500000.0,
+          4000000.0,
+          0.0,
+        ])
         ..addAsciiTag(TiffTagId.geoAsciiParams, 'WGS 84|')
         ..addTag(TiffTagId.geoKeyDirectory, TiffTagType.tShort, [
           1, 1, 0, 2, // header: version 1.1.0, 2 keys

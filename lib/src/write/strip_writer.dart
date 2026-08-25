@@ -25,16 +25,18 @@ class StripWriter {
       final rows = math.min(rowsPerStrip, spec.height - rowIndex);
       final start = rowIndex * spec.width * spec.samplesPerPixel;
       final end = (rowIndex + rows) * spec.width * spec.samplesPerPixel;
-      chunks.add(ChunkEncoder.encodeChunk(
-        samples: spec.samples.sublist(start, end),
-        compression: spec.compression,
-        predictor: spec.predictor,
-        rows: rows,
-        columns: spec.width,
-        samplesPerPixel: spec.samplesPerPixel,
-        bitsPerSample: spec.bitsPerSample,
-        endian: endian,
-      ));
+      chunks.add(
+        ChunkEncoder.encodeChunk(
+          samples: spec.samples.sublist(start, end),
+          compression: spec.compression,
+          predictor: spec.predictor,
+          rows: rows,
+          columns: spec.width,
+          samplesPerPixel: spec.samplesPerPixel,
+          bitsPerSample: spec.bitsPerSample,
+          endian: endian,
+        ),
+      );
       rowIndex += rows;
     }
     return chunks;
@@ -50,8 +52,14 @@ class StripWriter {
       IfdField(TiffTagId.rowsPerStrip, TiffTagType.tLong, [rowsPerStrip]),
       // Values are a zero placeholder here; TiffWriter patches in the real
       // offsets once pixel-data placement is known (see its top-level doc).
-      IfdField(TiffTagId.stripOffsets, offsetType, List.filled(chunks.length, 0)),
-      IfdField(TiffTagId.stripByteCounts, offsetType, [for (final c in chunks) c.length]),
+      IfdField(
+        TiffTagId.stripOffsets,
+        offsetType,
+        List.filled(chunks.length, 0),
+      ),
+      IfdField(TiffTagId.stripByteCounts, offsetType, [
+        for (final c in chunks) c.length,
+      ]),
     ];
   }
 }

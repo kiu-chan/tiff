@@ -5,5 +5,6 @@ enum TiffByteOrder {
   little,
   big;
 
-  Endian get endian => this == TiffByteOrder.little ? Endian.little : Endian.big;
+  Endian get endian =>
+      this == TiffByteOrder.little ? Endian.little : Endian.big;
 }

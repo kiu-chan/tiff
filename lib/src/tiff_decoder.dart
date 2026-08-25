@@ -15,7 +15,8 @@ class TiffDecoder {
   const TiffDecoder._();
 
   /// Decodes from an in-memory buffer.
-  static TiffDocument decode(Uint8List bytes) => decodeSource(MemoryByteSource(bytes));
+  static TiffDocument decode(Uint8List bytes) =>
+      decodeSource(MemoryByteSource(bytes));
 
   /// Decodes from any [TiffByteSource] — use this with a file-backed source
   /// (see `package:tiff/tiff_io.dart`) to avoid loading a large BigTIFF
@@ -29,11 +30,19 @@ class TiffDecoder {
     int? nextIfdOffset = header.firstIfdOffset;
 
     while (nextIfdOffset != null && nextIfdOffset != 0) {
-      final result = TiffIfdReader.read(reader, nextIfdOffset, isBigTiff: header.isBigTiff);
+      final result = TiffIfdReader.read(
+        reader,
+        nextIfdOffset,
+        isBigTiff: header.isBigTiff,
+      );
 
       final tags = <int, TiffTagValue>{};
       for (final entry in result.entries) {
-        tags[entry.tagId] = TiffIfdReader.resolveValue(reader, entry, isBigTiff: header.isBigTiff);
+        tags[entry.tagId] = TiffIfdReader.resolveValue(
+          reader,
+          entry,
+          isBigTiff: header.isBigTiff,
+        );
       }
 
       images.add(TiffImage.fromTags(tags, reader, isBigTiff: header.isBigTiff));
@@ -44,6 +53,11 @@ class TiffDecoder {
       throw const TiffException('TIFF file contains no image directories');
     }
 
-    return TiffDocument(images: images, isBigTiff: header.isBigTiff, byteOrder: header.byteOrder, source: source);
+    return TiffDocument(
+      images: images,
+      isBigTiff: header.isBigTiff,
+      byteOrder: header.byteOrder,
+      source: source,
+    );
   }
 }

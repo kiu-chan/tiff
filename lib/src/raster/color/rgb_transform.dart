@@ -10,7 +10,9 @@ class RgbTransform {
 
   static Uint8List toRgba8(TiffRasterBuffer raster) {
     if (raster.samplesPerPixel < 3) {
-      throw TiffException('RGB photometric requires at least 3 samples per pixel, got ${raster.samplesPerPixel}');
+      throw TiffException(
+        'RGB photometric requires at least 3 samples per pixel, got ${raster.samplesPerPixel}',
+      );
     }
     final maxValue = (1 << raster.bitsPerSample) - 1;
     final hasAlpha = raster.samplesPerPixel >= 4;

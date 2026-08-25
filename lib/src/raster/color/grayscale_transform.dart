@@ -12,7 +12,9 @@ class GrayscaleTransform {
     final out = Uint8List(pixelCount * 4);
     for (var p = 0; p < pixelCount; p++) {
       final raw = raster.samples[p * raster.samplesPerPixel];
-      var v8 = maxValue == 0 ? 0 : ((raw * 255) / maxValue).round().clamp(0, 255);
+      var v8 = maxValue == 0
+          ? 0
+          : ((raw * 255) / maxValue).round().clamp(0, 255);
       if (invert) v8 = 255 - v8;
       final o = p * 4;
       out[o] = v8;

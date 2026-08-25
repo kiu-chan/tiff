@@ -41,17 +41,22 @@ class TiffImageAdapter {
   }) {
     final decoded = img.decodeJpg(jpegBytes);
     if (decoded == null) {
-      throw const TiffException('package:image failed to decode a JPEG-compressed TIFF chunk');
+      throw const TiffException(
+        'package:image failed to decode a JPEG-compressed TIFF chunk',
+      );
     }
     if (decoded.width != columns || decoded.height != rows) {
       throw TiffException(
-          'JPEG chunk decoded to ${decoded.width}x${decoded.height}, expected ${columns}x$rows');
+        'JPEG chunk decoded to ${decoded.width}x${decoded.height}, expected ${columns}x$rows',
+      );
     }
     final order = switch (samplesPerPixel) {
       1 => img.ChannelOrder.red,
       3 => img.ChannelOrder.rgb,
       4 => img.ChannelOrder.rgba,
-      _ => throw TiffException('JPEG-in-TIFF with $samplesPerPixel samples/pixel is not supported'),
+      _ => throw TiffException(
+        'JPEG-in-TIFF with $samplesPerPixel samples/pixel is not supported',
+      ),
     };
     return decoded.getBytes(order: order);
   }
@@ -85,7 +90,9 @@ class TiffImageAdapter {
     int? tileLength,
   }) {
     final useAlpha = keepAlpha && image.hasAlpha;
-    final samples = image.getBytes(order: useAlpha ? img.ChannelOrder.rgba : img.ChannelOrder.rgb);
+    final samples = image.getBytes(
+      order: useAlpha ? img.ChannelOrder.rgba : img.ChannelOrder.rgb,
+    );
     return TiffImageSpec(
       width: image.width,
       height: image.height,

@@ -10,7 +10,9 @@ class CmykTransform {
 
   static Uint8List toRgba8(TiffRasterBuffer raster) {
     if (raster.samplesPerPixel < 4) {
-      throw TiffException('CMYK photometric requires 4 samples per pixel, got ${raster.samplesPerPixel}');
+      throw TiffException(
+        'CMYK photometric requires 4 samples per pixel, got ${raster.samplesPerPixel}',
+      );
     }
     final maxValue = (1 << raster.bitsPerSample) - 1;
     final pixelCount = raster.width * raster.height;

@@ -10,5 +10,6 @@ enum TiffPlanarConfiguration {
 
   const TiffPlanarConfiguration(this.code);
 
-  static TiffPlanarConfiguration fromCode(int code) => code == 2 ? planar : chunky;
+  static TiffPlanarConfiguration fromCode(int code) =>
+      code == 2 ? planar : chunky;
 }

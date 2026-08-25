@@ -39,33 +39,52 @@ void main() {
       expect(raster.sampleAt(1, 1, 0), 40);
     });
 
-    test('decodes an uncompressed 8-bit RGB image (BitsPerSample overflows inline field)', () {
-      final builder = TiffFixtureBuilder()
-        ..addTag(TiffTagId.imageWidth, TiffTagType.tShort, [2])
-        ..addTag(TiffTagId.imageLength, TiffTagType.tShort, [2])
-        ..addTag(TiffTagId.bitsPerSample, TiffTagType.tShort, [8, 8, 8])
-        ..addTag(TiffTagId.compression, TiffTagType.tShort, [1])
-        ..addTag(TiffTagId.photometricInterpretation, TiffTagType.tShort, [2])
-        ..addStripOffsetsTag(TiffTagId.stripOffsets, TiffTagType.tLong, [12])
-        ..addTag(TiffTagId.samplesPerPixel, TiffTagType.tShort, [3])
-        ..addTag(TiffTagId.rowsPerStrip, TiffTagType.tLong, [2])
-        ..addTag(TiffTagId.stripByteCounts, TiffTagType.tLong, [12])
-        ..setPixelData(Uint8List.fromList([
-          255, 0, 0, // red
-          0, 255, 0, // green
-          0, 0, 255, // blue
-          255, 255, 0, // yellow
-        ]));
+    test(
+      'decodes an uncompressed 8-bit RGB image (BitsPerSample overflows inline field)',
+      () {
+        final builder = TiffFixtureBuilder()
+          ..addTag(TiffTagId.imageWidth, TiffTagType.tShort, [2])
+          ..addTag(TiffTagId.imageLength, TiffTagType.tShort, [2])
+          ..addTag(TiffTagId.bitsPerSample, TiffTagType.tShort, [8, 8, 8])
+          ..addTag(TiffTagId.compression, TiffTagType.tShort, [1])
+          ..addTag(TiffTagId.photometricInterpretation, TiffTagType.tShort, [2])
+          ..addStripOffsetsTag(TiffTagId.stripOffsets, TiffTagType.tLong, [12])
+          ..addTag(TiffTagId.samplesPerPixel, TiffTagType.tShort, [3])
+          ..addTag(TiffTagId.rowsPerStrip, TiffTagType.tLong, [2])
+          ..addTag(TiffTagId.stripByteCounts, TiffTagType.tLong, [12])
+          ..setPixelData(
+            Uint8List.fromList([
+              255, 0, 0, // red
+              0, 255, 0, // green
+              0, 0, 255, // blue
+              255, 255, 0, // yellow
+            ]),
+          );
 
-      final image = TiffDecoder.decode(builder.build()).images.single;
-      expect(image.metadata.bitsPerSample, [8, 8, 8]);
-      expect(image.metadata.photometric, TiffPhotometric.rgb);
+        final image = TiffDecoder.decode(builder.build()).images.single;
+        expect(image.metadata.bitsPerSample, [8, 8, 8]);
+        expect(image.metadata.photometric, TiffPhotometric.rgb);
 
-      final raster = image.decode();
-      expect(raster.samplesPerPixel, 3);
-      expect([raster.sampleAt(0, 0, 0), raster.sampleAt(0, 0, 1), raster.sampleAt(0, 0, 2)], [255, 0, 0]);
-      expect([raster.sampleAt(1, 1, 0), raster.sampleAt(1, 1, 1), raster.sampleAt(1, 1, 2)], [255, 255, 0]);
-    });
+        final raster = image.decode();
+        expect(raster.samplesPerPixel, 3);
+        expect(
+          [
+            raster.sampleAt(0, 0, 0),
+            raster.sampleAt(0, 0, 1),
+            raster.sampleAt(0, 0, 2),
+          ],
+          [255, 0, 0],
+        );
+        expect(
+          [
+            raster.sampleAt(1, 1, 0),
+            raster.sampleAt(1, 1, 1),
+            raster.sampleAt(1, 1, 2),
+          ],
+          [255, 255, 0],
+        );
+      },
+    );
 
     test('decodes multiple strips and reassembles rows in order', () {
       final builder = TiffFixtureBuilder()
@@ -107,7 +126,9 @@ void main() {
         ..addTag(TiffTagId.imageWidth, TiffTagType.tShort, [1])
         ..addTag(TiffTagId.imageLength, TiffTagType.tShort, [1])
         ..addTag(TiffTagId.bitsPerSample, TiffTagType.tShort, [8])
-        ..addTag(TiffTagId.compression, TiffTagType.tShort, [6]) // old-style JPEG, not supported
+        ..addTag(TiffTagId.compression, TiffTagType.tShort, [
+          6,
+        ]) // old-style JPEG, not supported
         ..addTag(TiffTagId.photometricInterpretation, TiffTagType.tShort, [1])
         ..addStripOffsetsTag(TiffTagId.stripOffsets, TiffTagType.tLong, [1])
         ..addTag(TiffTagId.samplesPerPixel, TiffTagType.tShort, [1])
@@ -120,8 +141,10 @@ void main() {
     });
 
     test('rejects a file with an invalid byte order marker', () {
-      expect(() => TiffDecoder.decode(Uint8List.fromList([0, 0, 0, 0, 0, 0, 0, 0])),
-          throwsA(isA<TiffException>()));
+      expect(
+        () => TiffDecoder.decode(Uint8List.fromList([0, 0, 0, 0, 0, 0, 0, 0])),
+        throwsA(isA<TiffException>()),
+      );
     });
   });
 
@@ -137,24 +160,16 @@ void main() {
         ..addTag(TiffTagId.samplesPerPixel, TiffTagType.tShort, [3])
         ..addTag(TiffTagId.rowsPerStrip, TiffTagType.tLong, [2])
         ..addTag(TiffTagId.stripByteCounts, TiffTagType.tLong, [12])
-        ..setPixelData(Uint8List.fromList([
-          255, 0, 0,
-          0, 255, 0,
-          0, 0, 255,
-          255, 255, 0,
-        ]));
+        ..setPixelData(
+          Uint8List.fromList([255, 0, 0, 0, 255, 0, 0, 0, 255, 255, 255, 0]),
+        );
 
       final doc = TiffDecoder.decode(builder.build());
       expect(doc.isBigTiff, isTrue);
       expect(doc.byteOrder, TiffByteOrder.big);
 
       final raster = doc.images.single.decode();
-      expect(raster.samples, [
-        255, 0, 0,
-        0, 255, 0,
-        0, 0, 255,
-        255, 255, 0,
-      ]);
+      expect(raster.samples, [255, 0, 0, 0, 255, 0, 0, 0, 255, 255, 255, 0]);
     });
   });
 }

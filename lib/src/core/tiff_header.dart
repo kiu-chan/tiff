@@ -25,7 +25,9 @@ class TiffHeader {
   /// (64-bit offsets, magic 43). Throws [TiffException] for anything else.
   static TiffHeader parse(TiffByteSource source) {
     if (source.length < 8) {
-      throw const TiffException('File is too small to contain a valid TIFF header');
+      throw const TiffException(
+        'File is too small to contain a valid TIFF header',
+      );
     }
 
     final marker = source.readBytes(0, 2);
@@ -43,23 +45,37 @@ class TiffHeader {
 
     if (magic == _classicMagic) {
       final firstIfdOffset = reader.readUint32(4);
-      return TiffHeader(byteOrder: byteOrder, isBigTiff: false, firstIfdOffset: firstIfdOffset);
+      return TiffHeader(
+        byteOrder: byteOrder,
+        isBigTiff: false,
+        firstIfdOffset: firstIfdOffset,
+      );
     }
 
     if (magic == _bigTiffMagic) {
       if (source.length < 16) {
-        throw const TiffException('File is too small to contain a valid BigTIFF header');
+        throw const TiffException(
+          'File is too small to contain a valid BigTIFF header',
+        );
       }
       final offsetByteSize = reader.readUint16(4);
       if (offsetByteSize != 8) {
-        throw TiffException('Unsupported BigTIFF offset byte size: $offsetByteSize');
+        throw TiffException(
+          'Unsupported BigTIFF offset byte size: $offsetByteSize',
+        );
       }
       final constant = reader.readUint16(6);
       if (constant != 0) {
-        throw TiffException('Invalid BigTIFF header constant: $constant (expected 0)');
+        throw TiffException(
+          'Invalid BigTIFF header constant: $constant (expected 0)',
+        );
       }
       final firstIfdOffset = reader.readUint64(8);
-      return TiffHeader(byteOrder: byteOrder, isBigTiff: true, firstIfdOffset: firstIfdOffset);
+      return TiffHeader(
+        byteOrder: byteOrder,
+        isBigTiff: true,
+        firstIfdOffset: firstIfdOffset,
+      );
     }
 
     throw TiffException('Unsupported TIFF magic number: $magic');

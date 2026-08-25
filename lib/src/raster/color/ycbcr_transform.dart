@@ -10,7 +10,9 @@ class YCbCrTransform {
 
   static Uint8List toRgba8(TiffRasterBuffer raster) {
     if (raster.samplesPerPixel < 3) {
-      throw TiffException('YCbCr photometric requires 3 samples per pixel, got ${raster.samplesPerPixel}');
+      throw TiffException(
+        'YCbCr photometric requires 3 samples per pixel, got ${raster.samplesPerPixel}',
+      );
     }
     final pixelCount = raster.width * raster.height;
     final out = Uint8List(pixelCount * 4);

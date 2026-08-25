@@ -30,8 +30,15 @@ class ChunkEncoder {
 
     for (var r = 0; r < rows; r++) {
       final rowStart = r * columns * samplesPerPixel;
-      final rowSamples = samples.sublist(rowStart, rowStart + columns * samplesPerPixel);
-      final rowBytes = PixelPacker.packRow(samples: rowSamples, bitsPerSample: bitsPerSample, endian: endian);
+      final rowSamples = samples.sublist(
+        rowStart,
+        rowStart + columns * samplesPerPixel,
+      );
+      final rowBytes = PixelPacker.packRow(
+        samples: rowSamples,
+        bitsPerSample: bitsPerSample,
+        endian: endian,
+      );
 
       if (predictor == 2) {
         Predictor.applyHorizontalDifferencing(

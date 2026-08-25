@@ -36,12 +36,22 @@ class CompressionCodecRegistry {
       case 3:
       case 4:
         if (columns == null || rows == null) {
-          throw const TiffException('CCITT compression requires a known chunk width/row count');
+          throw const TiffException(
+            'CCITT compression requires a known chunk width/row count',
+          );
         }
-        return CcittCodec.decode(compressionCode, input,
-            columns: columns, rows: rows, t4Options: t4Options, t6Options: t6Options);
+        return CcittCodec.decode(
+          compressionCode,
+          input,
+          columns: columns,
+          rows: rows,
+          t4Options: t4Options,
+          t6Options: t6Options,
+        );
       default:
-        throw TiffException('Compression code $compressionCode is not supported yet');
+        throw TiffException(
+          'Compression code $compressionCode is not supported yet',
+        );
     }
   }
 
@@ -60,9 +70,12 @@ class CompressionCodecRegistry {
       case 3:
       case 4:
         throw TiffException(
-            'CCITT Group 3/4 encoding (compression $compressionCode) is not supported — decode only');
+          'CCITT Group 3/4 encoding (compression $compressionCode) is not supported — decode only',
+        );
       default:
-        throw TiffException('Compression code $compressionCode is not supported yet for encoding');
+        throw TiffException(
+          'Compression code $compressionCode is not supported yet for encoding',
+        );
     }
   }
 }

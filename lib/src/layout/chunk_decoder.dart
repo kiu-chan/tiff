@@ -29,7 +29,9 @@ class ChunkDecoder {
   }) {
     final isCcitt = compression == 2 || compression == 3 || compression == 4;
     if (isCcitt && (bitsPerSample != 1 || samplesPerPixel != 1)) {
-      throw const TiffException('CCITT compression requires 1 bit per sample and 1 sample per pixel');
+      throw const TiffException(
+        'CCITT compression requires 1 bit per sample and 1 sample per pixel',
+      );
     }
 
     if (compression == 6 || compression == 7) {
@@ -54,13 +56,18 @@ class ChunkDecoder {
     final expectedLength = bytesPerRow * rows;
     if (decompressed.length < expectedLength) {
       throw TiffException(
-          'Decompressed chunk is smaller than expected: got ${decompressed.length} bytes, need $expectedLength');
+        'Decompressed chunk is smaller than expected: got ${decompressed.length} bytes, need $expectedLength',
+      );
     }
 
     final samples = List<int>.filled(columns * rows * samplesPerPixel, 0);
     for (var r = 0; r < rows; r++) {
       final rowStart = r * bytesPerRow;
-      final rowBytes = Uint8List.sublistView(decompressed, rowStart, rowStart + bytesPerRow);
+      final rowBytes = Uint8List.sublistView(
+        decompressed,
+        rowStart,
+        rowStart + bytesPerRow,
+      );
 
       if (predictor == 2) {
         Predictor.undoHorizontalDifferencing(
@@ -102,14 +109,21 @@ class ChunkDecoder {
     final decoder = JpegCodecHook.decoder;
     if (decoder == null) {
       throw const TiffException(
-          'JPEG-compressed TIFF data needs a JPEG decoder — import package:tiff/tiff_image_adapter.dart '
-          'and call TiffImageAdapter.enableJpegSupport() once before decoding');
+        'JPEG-compressed TIFF data needs a JPEG decoder — import package:tiff/tiff_image_adapter.dart '
+        'and call TiffImageAdapter.enableJpegSupport() once before decoding',
+      );
     }
 
-    final jpegBytes =
-        (jpegTables != null && jpegTables.isNotEmpty) ? _mergeJpegTables(jpegTables, compressedBytes) : compressedBytes;
+    final jpegBytes = (jpegTables != null && jpegTables.isNotEmpty)
+        ? _mergeJpegTables(jpegTables, compressedBytes)
+        : compressedBytes;
 
-    return decoder(jpegBytes, columns: columns, rows: rows, samplesPerPixel: samplesPerPixel);
+    return decoder(
+      jpegBytes,
+      columns: columns,
+      rows: rows,
+      samplesPerPixel: samplesPerPixel,
+    );
   }
 
   /// Merges a shared JPEGTables (tag 347) stream with a per-strip/tile
@@ -120,9 +134,16 @@ class ChunkDecoder {
   static Uint8List _mergeJpegTables(Uint8List tables, Uint8List strip) {
     const soiMarker = 0xD8;
     const eoiMarker = 0xD9;
-    final hasTrailingEoi = tables.length >= 2 && tables[tables.length - 2] == 0xFF && tables.last == eoiMarker;
-    final tablesBody = tables.sublist(2, hasTrailingEoi ? tables.length - 2 : tables.length);
-    final hasLeadingSoi = strip.length >= 2 && strip[0] == 0xFF && strip[1] == soiMarker;
+    final hasTrailingEoi =
+        tables.length >= 2 &&
+        tables[tables.length - 2] == 0xFF &&
+        tables.last == eoiMarker;
+    final tablesBody = tables.sublist(
+      2,
+      hasTrailingEoi ? tables.length - 2 : tables.length,
+    );
+    final hasLeadingSoi =
+        strip.length >= 2 && strip[0] == 0xFF && strip[1] == soiMarker;
     final stripBody = strip.sublist(hasLeadingSoi ? 2 : 0);
 
     final merged = Uint8List(2 + tablesBody.length + stripBody.length);

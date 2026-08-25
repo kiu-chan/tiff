@@ -41,5 +41,6 @@ class TiffByteReader {
 
   Uint8List readBytes(int offset, int count) => source.readBytes(offset, count);
 
-  ByteData _view(int offset, int count) => ByteData.sublistView(source.readBytes(offset, count));
+  ByteData _view(int offset, int count) =>
+      ByteData.sublistView(source.readBytes(offset, count));
 }

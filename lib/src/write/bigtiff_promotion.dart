@@ -9,7 +9,10 @@ class BigTiffPromotion {
   static const int classicOffsetLimit = 0xFFFFFFFF;
   static const int _safetyMargin = 16 * 1024 * 1024;
 
-  static bool shouldUseBigTiff({required int totalPixelDataBytes, bool? forceBigTiff}) {
+  static bool shouldUseBigTiff({
+    required int totalPixelDataBytes,
+    bool? forceBigTiff,
+  }) {
     if (forceBigTiff != null) return forceBigTiff;
     return totalPixelDataBytes > classicOffsetLimit - _safetyMargin;
   }

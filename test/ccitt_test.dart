@@ -14,7 +14,12 @@ import 'support/tiff_fixture_builder.dart';
 /// reference), so driving both the test vectors and the decoder from the
 /// same tables is a legitimate way to exercise the decode *algorithm*
 /// (mode/run parsing, pixel placement, byte packing).
-String _bitsFor(List<List<int>> table, int value, int Function(int index) codeForIndex, int windowBits) {
+String _bitsFor(
+  List<List<int>> table,
+  int value,
+  int Function(int index) codeForIndex,
+  int windowBits,
+) {
   for (var idx = 0; idx < table.length; idx++) {
     final entry = table[idx];
     if (entry[0] <= 0 || entry[1] != value) continue;
@@ -59,11 +64,16 @@ Uint8List packBits(String bits) {
 
 void main() {
   group('CCITT Group 4 (T.6) decode', () {
-    test('single all-white row (trivial vertical-mode-0 against the imaginary white reference)', () {
-      final bits = modeBits(twoDimVert0); // matches the all-white imaginary reference line exactly
-      final out = CcittCodec.decode(4, packBits(bits), columns: 8, rows: 1);
-      expect(out, [0x00]);
-    });
+    test(
+      'single all-white row (trivial vertical-mode-0 against the imaginary white reference)',
+      () {
+        final bits = modeBits(
+          twoDimVert0,
+        ); // matches the all-white imaginary reference line exactly
+        final out = CcittCodec.decode(4, packBits(bits), columns: 8, rows: 1);
+        expect(out, [0x00]);
+      },
+    );
 
     test('single all-black row via horizontal mode', () {
       final bits = modeBits(twoDimHoriz) + whiteBits(0) + blackBits(8);
@@ -78,24 +88,40 @@ void main() {
       expect(out, [0x1f]);
     });
 
-    test('second row uses vertical mode against a non-trivial reference line', () {
-      // Row 0: horizontal mode, white(3) black(5) -> 00011111
-      final row0 = modeBits(twoDimHoriz) + whiteBits(3) + blackBits(5);
-      // Row 1: identical to row 0 -> a single V0 reproduces every transition.
-      final row1 = modeBits(twoDimVert0) + modeBits(twoDimVert0);
-      final out = CcittCodec.decode(4, packBits(row0 + row1), columns: 8, rows: 2);
-      expect(out, [0x1f, 0x1f]);
-    });
+    test(
+      'second row uses vertical mode against a non-trivial reference line',
+      () {
+        // Row 0: horizontal mode, white(3) black(5) -> 00011111
+        final row0 = modeBits(twoDimHoriz) + whiteBits(3) + blackBits(5);
+        // Row 1: identical to row 0 -> a single V0 reproduces every transition.
+        final row1 = modeBits(twoDimVert0) + modeBits(twoDimVert0);
+        final out = CcittCodec.decode(
+          4,
+          packBits(row0 + row1),
+          columns: 8,
+          rows: 2,
+        );
+        expect(out, [0x1f, 0x1f]);
+      },
+    );
 
-    test('vertical mode with a +1 offset from the reference transition (VR1)', () {
-      // Row 0: white(3) black(5) -> transitions at columns 3 and 8.
-      final row0 = modeBits(twoDimHoriz) + whiteBits(3) + blackBits(5);
-      // Row 1: first transition shifts one column right (VR1: 3+1=4), second
-      // transition stays coincident (V0) -> white(4) black(4) -> 0b00001111.
-      final row1 = modeBits(twoDimVertR1) + modeBits(twoDimVert0);
-      final out = CcittCodec.decode(4, packBits(row0 + row1), columns: 8, rows: 2);
-      expect(out, [0x1f, 0x0f]);
-    });
+    test(
+      'vertical mode with a +1 offset from the reference transition (VR1)',
+      () {
+        // Row 0: white(3) black(5) -> transitions at columns 3 and 8.
+        final row0 = modeBits(twoDimHoriz) + whiteBits(3) + blackBits(5);
+        // Row 1: first transition shifts one column right (VR1: 3+1=4), second
+        // transition stays coincident (V0) -> white(4) black(4) -> 0b00001111.
+        final row1 = modeBits(twoDimVertR1) + modeBits(twoDimVert0);
+        final out = CcittCodec.decode(
+          4,
+          packBits(row0 + row1),
+          columns: 8,
+          rows: 2,
+        );
+        expect(out, [0x1f, 0x0f]);
+      },
+    );
 
     test('throws when the stream runs out before the declared row count', () {
       final bits = modeBits(twoDimVert0);
@@ -128,7 +154,13 @@ void main() {
       // 1 => this line is 1D-coded, 0 => 2D-coded.
       const oneDTag = '1';
       final bits = eol + oneDTag + (whiteBits(3) + blackBits(5));
-      final out = CcittCodec.decode(3, packBits(bits), columns: 8, rows: 1, t4Options: 0x1);
+      final out = CcittCodec.decode(
+        3,
+        packBits(bits),
+        columns: 8,
+        rows: 1,
+        t4Options: 0x1,
+      );
       expect(out, [0x1f]);
     });
   });
@@ -136,14 +168,26 @@ void main() {
   group('CcittCodec option validation', () {
     test('rejects T.4 uncompressed mode', () {
       expect(
-        () => CcittCodec.decode(3, Uint8List(0), columns: 8, rows: 1, t4Options: 0x2),
+        () => CcittCodec.decode(
+          3,
+          Uint8List(0),
+          columns: 8,
+          rows: 1,
+          t4Options: 0x2,
+        ),
         throwsA(isA<TiffException>()),
       );
     });
 
     test('rejects T.6 uncompressed mode', () {
       expect(
-        () => CcittCodec.decode(4, Uint8List(0), columns: 8, rows: 1, t6Options: 0x2),
+        () => CcittCodec.decode(
+          4,
+          Uint8List(0),
+          columns: 8,
+          rows: 1,
+          t6Options: 0x2,
+        ),
         throwsA(isA<TiffException>()),
       );
     });
@@ -164,8 +208,12 @@ void main() {
         ..addTag(TiffTagId.compression, TiffTagType.tShort, [4])
         ..addTag(TiffTagId.photometricInterpretation, TiffTagType.tShort, [0])
         ..addTag(TiffTagId.rowsPerStrip, TiffTagType.tShort, [2])
-        ..addStripOffsetsTag(TiffTagId.stripOffsets, TiffTagType.tLong, [pixelData.length])
-        ..addTag(TiffTagId.stripByteCounts, TiffTagType.tLong, [pixelData.length])
+        ..addStripOffsetsTag(TiffTagId.stripOffsets, TiffTagType.tLong, [
+          pixelData.length,
+        ])
+        ..addTag(TiffTagId.stripByteCounts, TiffTagType.tLong, [
+          pixelData.length,
+        ])
         ..setPixelData(pixelData);
 
       final doc = TiffDecoder.decode(builder.build());

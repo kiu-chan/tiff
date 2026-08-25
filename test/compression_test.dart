@@ -22,7 +22,9 @@ void main() {
       // A pseudo-random-ish but deterministic sequence with enough distinct
       // substrings to push the dictionary past the 510-entry "early change"
       // boundary into 10-bit codes.
-      final input = Uint8List.fromList(List.generate(2000, (i) => (i * 37 + i ~/ 7) & 0xFF));
+      final input = Uint8List.fromList(
+        List.generate(2000, (i) => (i * 37 + i ~/ 7) & 0xFF),
+      );
       final encoded = LzwCodec.encode(input);
       final decoded = LzwCodec.decode(encoded);
       expect(decoded, input);
@@ -51,7 +53,12 @@ void main() {
   group('Predictor (unit)', () {
     test('undoes 8-bit horizontal differencing for a single-channel row', () {
       final original = Uint8List.fromList([10, 15, 12, 40]);
-      final diffed = Uint8List.fromList([10, 5, 253, 28]); // 15-10=5, 12-15=-3, 40-12=28
+      final diffed = Uint8List.fromList([
+        10,
+        5,
+        253,
+        28,
+      ]); // 15-10=5, 12-15=-3, 40-12=28
       Predictor.undoHorizontalDifferencing(
         rowBytes: diffed,
         bitsPerSample: 8,
@@ -86,10 +93,14 @@ void main() {
         ..addTag(TiffTagId.bitsPerSample, TiffTagType.tShort, [8])
         ..addTag(TiffTagId.compression, TiffTagType.tShort, [5])
         ..addTag(TiffTagId.photometricInterpretation, TiffTagType.tShort, [1])
-        ..addStripOffsetsTag(TiffTagId.stripOffsets, TiffTagType.tLong, [compressed.length])
+        ..addStripOffsetsTag(TiffTagId.stripOffsets, TiffTagType.tLong, [
+          compressed.length,
+        ])
         ..addTag(TiffTagId.samplesPerPixel, TiffTagType.tShort, [1])
         ..addTag(TiffTagId.rowsPerStrip, TiffTagType.tLong, [4])
-        ..addTag(TiffTagId.stripByteCounts, TiffTagType.tLong, [compressed.length])
+        ..addTag(TiffTagId.stripByteCounts, TiffTagType.tLong, [
+          compressed.length,
+        ])
         ..setPixelData(compressed);
 
       final raster = TiffDecoder.decode(builder.build()).images.single.decode();
@@ -99,7 +110,15 @@ void main() {
     test('decodes a PackBits-compressed strip', () {
       const raw = [1, 2, 3, 4, 0xAA, 0xAA, 0xAA, 0xAA];
       // Literal run [1,2,3,4] then repeat 0xAA x4.
-      final compressed = Uint8List.fromList([3, 1, 2, 3, 4, (256 - 3) & 0xFF, 0xAA]);
+      final compressed = Uint8List.fromList([
+        3,
+        1,
+        2,
+        3,
+        4,
+        (256 - 3) & 0xFF,
+        0xAA,
+      ]);
 
       final builder = TiffFixtureBuilder()
         ..addTag(TiffTagId.imageWidth, TiffTagType.tShort, [8])
@@ -107,10 +126,14 @@ void main() {
         ..addTag(TiffTagId.bitsPerSample, TiffTagType.tShort, [8])
         ..addTag(TiffTagId.compression, TiffTagType.tShort, [32773])
         ..addTag(TiffTagId.photometricInterpretation, TiffTagType.tShort, [1])
-        ..addStripOffsetsTag(TiffTagId.stripOffsets, TiffTagType.tLong, [compressed.length])
+        ..addStripOffsetsTag(TiffTagId.stripOffsets, TiffTagType.tLong, [
+          compressed.length,
+        ])
         ..addTag(TiffTagId.samplesPerPixel, TiffTagType.tShort, [1])
         ..addTag(TiffTagId.rowsPerStrip, TiffTagType.tLong, [1])
-        ..addTag(TiffTagId.stripByteCounts, TiffTagType.tLong, [compressed.length])
+        ..addTag(TiffTagId.stripByteCounts, TiffTagType.tLong, [
+          compressed.length,
+        ])
         ..setPixelData(compressed);
 
       final raster = TiffDecoder.decode(builder.build()).images.single.decode();
@@ -127,10 +150,14 @@ void main() {
         ..addTag(TiffTagId.bitsPerSample, TiffTagType.tShort, [8])
         ..addTag(TiffTagId.compression, TiffTagType.tShort, [8])
         ..addTag(TiffTagId.photometricInterpretation, TiffTagType.tShort, [1])
-        ..addStripOffsetsTag(TiffTagId.stripOffsets, TiffTagType.tLong, [compressed.length])
+        ..addStripOffsetsTag(TiffTagId.stripOffsets, TiffTagType.tLong, [
+          compressed.length,
+        ])
         ..addTag(TiffTagId.samplesPerPixel, TiffTagType.tShort, [1])
         ..addTag(TiffTagId.rowsPerStrip, TiffTagType.tLong, [4])
-        ..addTag(TiffTagId.stripByteCounts, TiffTagType.tLong, [compressed.length])
+        ..addTag(TiffTagId.stripByteCounts, TiffTagType.tLong, [
+          compressed.length,
+        ])
         ..setPixelData(compressed);
 
       final raster = TiffDecoder.decode(builder.build()).images.single.decode();
@@ -152,10 +179,14 @@ void main() {
         ..addTag(TiffTagId.compression, TiffTagType.tShort, [1])
         ..addTag(TiffTagId.photometricInterpretation, TiffTagType.tShort, [2])
         ..addTag(TiffTagId.predictor, TiffTagType.tShort, [2])
-        ..addStripOffsetsTag(TiffTagId.stripOffsets, TiffTagType.tLong, [pixelData.length])
+        ..addStripOffsetsTag(TiffTagId.stripOffsets, TiffTagType.tLong, [
+          pixelData.length,
+        ])
         ..addTag(TiffTagId.samplesPerPixel, TiffTagType.tShort, [3])
         ..addTag(TiffTagId.rowsPerStrip, TiffTagType.tLong, [2])
-        ..addTag(TiffTagId.stripByteCounts, TiffTagType.tLong, [pixelData.length])
+        ..addTag(TiffTagId.stripByteCounts, TiffTagType.tLong, [
+          pixelData.length,
+        ])
         ..setPixelData(pixelData);
 
       final raster = TiffDecoder.decode(builder.build()).images.single.decode();

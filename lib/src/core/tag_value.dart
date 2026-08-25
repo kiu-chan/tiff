@@ -47,14 +47,19 @@ class TiffTagValue {
   factory TiffTagValue.rationals(TiffTagType type, List<TiffRational> values) =>
       TiffTagValue._(type: type, count: values.length, rationals: values);
 
-  factory TiffTagValue.ascii(String value) =>
-      TiffTagValue._(type: TiffTagType.tAscii, count: value.length + 1, text: value);
+  factory TiffTagValue.ascii(String value) => TiffTagValue._(
+    type: TiffTagType.tAscii,
+    count: value.length + 1,
+    text: value,
+  );
 
   /// First value as an int. Works for integer, float and rational types.
   int asInt() {
     if (ints != null && ints!.isNotEmpty) return ints!.first;
     if (floats != null && floats!.isNotEmpty) return floats!.first.round();
-    if (rationals != null && rationals!.isNotEmpty) return rationals!.first.toDouble().round();
+    if (rationals != null && rationals!.isNotEmpty) {
+      return rationals!.first.toDouble().round();
+    }
     throw const TiffException('Tag value has no integer representation');
   }
 
@@ -62,14 +67,18 @@ class TiffTagValue {
   List<int> asIntList() {
     if (ints != null) return ints!;
     if (floats != null) return floats!.map((f) => f.round()).toList();
-    if (rationals != null) return rationals!.map((r) => r.toDouble().round()).toList();
+    if (rationals != null) {
+      return rationals!.map((r) => r.toDouble().round()).toList();
+    }
     throw const TiffException('Tag value has no integer representation');
   }
 
   /// First value as a double. Works for integer, float and rational types.
   double asDouble() {
     if (floats != null && floats!.isNotEmpty) return floats!.first;
-    if (rationals != null && rationals!.isNotEmpty) return rationals!.first.toDouble();
+    if (rationals != null && rationals!.isNotEmpty) {
+      return rationals!.first.toDouble();
+    }
     if (ints != null && ints!.isNotEmpty) return ints!.first.toDouble();
     throw const TiffException('Tag value has no numeric representation');
   }

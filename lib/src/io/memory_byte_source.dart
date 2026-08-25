@@ -12,7 +12,8 @@ class MemoryByteSource implements TiffByteSource {
   int get length => bytes.length;
 
   @override
-  Uint8List readBytes(int offset, int length) => Uint8List.sublistView(bytes, offset, offset + length);
+  Uint8List readBytes(int offset, int length) =>
+      Uint8List.sublistView(bytes, offset, offset + length);
 
   @override
   void close() {}

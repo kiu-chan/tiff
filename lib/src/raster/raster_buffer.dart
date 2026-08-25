@@ -22,5 +22,6 @@ class TiffRasterBuffer {
     required this.samples,
   });
 
-  int sampleAt(int x, int y, int channel) => samples[(y * width + x) * samplesPerPixel + channel];
+  int sampleAt(int x, int y, int channel) =>
+      samples[(y * width + x) * samplesPerPixel + channel];
 }

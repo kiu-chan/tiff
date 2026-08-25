@@ -50,14 +50,19 @@ class TiffImageSpec {
   }) {
     if (samples.length != width * height * samplesPerPixel) {
       throw TiffException(
-          'samples has ${samples.length} entries, expected ${width * height * samplesPerPixel} '
-          '(width * height * samplesPerPixel)');
+        'samples has ${samples.length} entries, expected ${width * height * samplesPerPixel} '
+        '(width * height * samplesPerPixel)',
+      );
     }
     if (bitsPerSample < 1 || bitsPerSample > 32) {
-      throw TiffException('bitsPerSample must be in [1, 32], got $bitsPerSample');
+      throw TiffException(
+        'bitsPerSample must be in [1, 32], got $bitsPerSample',
+      );
     }
     if ((tileWidth == null) != (tileLength == null)) {
-      throw const TiffException('tileWidth and tileLength must be set together');
+      throw const TiffException(
+        'tileWidth and tileLength must be set together',
+      );
     }
     if (isTiled && rowsPerStrip != null) {
       throw const TiffException('rowsPerStrip is not used for tiled images');

@@ -15,8 +15,11 @@ class StripLayout {
   static TiffRasterBuffer decode({
     required TiffByteReader reader,
     required TiffImageMetadata metadata,
-  }) =>
-      decodeRegion(reader: reader, metadata: metadata, region: TiffRegion.fullImage(metadata));
+  }) => decodeRegion(
+    reader: reader,
+    metadata: metadata,
+    region: TiffRegion.fullImage(metadata),
+  );
 
   /// Decodes only [region], skipping every strip that doesn't overlap it —
   /// entirely, including the disk/network read behind [reader.readBytes] —
@@ -33,23 +36,35 @@ class StripLayout {
     final samplesPerPixel = metadata.samplesPerPixel;
     final width = metadata.width;
     final height = metadata.height;
-    final rowsPerStrip = metadata.rowsPerStrip > 0 ? metadata.rowsPerStrip : height;
+    final rowsPerStrip = metadata.rowsPerStrip > 0
+        ? metadata.rowsPerStrip
+        : height;
 
     if (metadata.stripOffsets.length != metadata.stripByteCounts.length) {
-      throw const TiffException('StripOffsets and StripByteCounts count mismatch');
+      throw const TiffException(
+        'StripOffsets and StripByteCounts count mismatch',
+      );
     }
 
     final regionRowLength = region.width * samplesPerPixel;
-    final samples = List<int>.filled(region.width * region.height * samplesPerPixel, 0);
+    final samples = List<int>.filled(
+      region.width * region.height * samplesPerPixel,
+      0,
+    );
 
     var rowIndex = 0;
-    for (var stripIndex = 0; stripIndex < metadata.stripOffsets.length; stripIndex++) {
+    for (
+      var stripIndex = 0;
+      stripIndex < metadata.stripOffsets.length;
+      stripIndex++
+    ) {
       final stripFirstRow = rowIndex;
       final rowsInThisStrip = math.min(rowsPerStrip, height - rowIndex);
       final stripLastRow = stripFirstRow + rowsInThisStrip;
       rowIndex = stripLastRow;
 
-      if (stripLastRow <= region.y || stripFirstRow >= region.y + region.height) {
+      if (stripLastRow <= region.y ||
+          stripFirstRow >= region.y + region.height) {
         continue;
       }
 
@@ -83,7 +98,9 @@ class StripLayout {
     }
 
     if (rowIndex != height) {
-      throw TiffException('Decoded row count ($rowIndex) does not match ImageLength ($height)');
+      throw TiffException(
+        'Decoded row count ($rowIndex) does not match ImageLength ($height)',
+      );
     }
 
     return TiffRasterBuffer(

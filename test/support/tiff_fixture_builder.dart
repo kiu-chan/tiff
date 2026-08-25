@@ -20,11 +20,25 @@ class TiffFixtureBuilder {
   }
 
   void addDoubleTag(int id, List<double> values) {
-    _tags.add(_Tag(id, TiffTagType.tDouble, List.filled(values.length, 0), doubleValues: values));
+    _tags.add(
+      _Tag(
+        id,
+        TiffTagType.tDouble,
+        List.filled(values.length, 0),
+        doubleValues: values,
+      ),
+    );
   }
 
   void addAsciiTag(int id, String value) {
-    _tags.add(_Tag(id, TiffTagType.tAscii, List.filled(value.length + 1, 0), asciiValue: value));
+    _tags.add(
+      _Tag(
+        id,
+        TiffTagType.tAscii,
+        List.filled(value.length + 1, 0),
+        asciiValue: value,
+      ),
+    );
   }
 
   /// Adds a StripOffsets/TileOffsets tag whose values are computed
@@ -32,7 +46,14 @@ class TiffFixtureBuilder {
   /// pixel data location is known, so callers don't need to hand-compute
   /// absolute file offsets.
   void addStripOffsetsTag(int id, TiffTagType type, List<int> byteCounts) {
-    _tags.add(_Tag(id, type, List.filled(byteCounts.length, 0), stripByteCounts: byteCounts));
+    _tags.add(
+      _Tag(
+        id,
+        type,
+        List.filled(byteCounts.length, 0),
+        stripByteCounts: byteCounts,
+      ),
+    );
   }
 
   void addTileOffsetsTag(int id, TiffTagType type, List<int> byteCounts) =>
@@ -49,7 +70,8 @@ class TiffFixtureBuilder {
     final nextIfdFieldSize = bigTiff ? 8 : 4;
 
     final ifdStart = headerSize;
-    final ifdEnd = ifdStart + countFieldSize + tags.length * entrySize + nextIfdFieldSize;
+    final ifdEnd =
+        ifdStart + countFieldSize + tags.length * entrySize + nextIfdFieldSize;
 
     final valueBytesList = <Uint8List>[];
     final overflowOffsets = <int?>[];
@@ -149,7 +171,11 @@ class TiffFixtureBuilder {
       data.setUint64(nextIfdOffsetPos, 0, endian);
     }
 
-    out.setRange(pixelDataOffset, pixelDataOffset + _pixelData.length, _pixelData);
+    out.setRange(
+      pixelDataOffset,
+      pixelDataOffset + _pixelData.length,
+      _pixelData,
+    );
 
     return out;
   }
@@ -183,7 +209,9 @@ class TiffFixtureBuilder {
       } else if (type == TiffTagType.tLong) {
         bd.setUint32(off, values[i], endian);
       } else {
-        throw UnsupportedError('Fixture builder only supports SHORT/LONG tags for now');
+        throw UnsupportedError(
+          'Fixture builder only supports SHORT/LONG tags for now',
+        );
       }
     }
     return bytes;
@@ -198,5 +226,12 @@ class _Tag {
   final List<double>? doubleValues;
   final String? asciiValue;
 
-  _Tag(this.id, this.type, this.values, {this.stripByteCounts, this.doubleValues, this.asciiValue});
+  _Tag(
+    this.id,
+    this.type,
+    this.values, {
+    this.stripByteCounts,
+    this.doubleValues,
+    this.asciiValue,
+  });
 }

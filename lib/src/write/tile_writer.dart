@@ -35,26 +35,32 @@ class TileWriter {
         final validWidth = math.min(tileWidth, spec.width - originX);
         final validHeight = math.min(tileLength, spec.height - originY);
 
-        final tileSamples = List<int>.filled(tileWidth * tileLength * spec.samplesPerPixel, 0);
+        final tileSamples = List<int>.filled(
+          tileWidth * tileLength * spec.samplesPerPixel,
+          0,
+        );
         final rowLen = validWidth * spec.samplesPerPixel;
         for (var row = 0; row < validHeight; row++) {
-          final srcStart = ((originY + row) * spec.width + originX) * spec.samplesPerPixel;
+          final srcStart =
+              ((originY + row) * spec.width + originX) * spec.samplesPerPixel;
           final destStart = row * tileWidth * spec.samplesPerPixel;
           for (var i = 0; i < rowLen; i++) {
             tileSamples[destStart + i] = spec.samples[srcStart + i];
           }
         }
 
-        chunks.add(ChunkEncoder.encodeChunk(
-          samples: tileSamples,
-          compression: spec.compression,
-          predictor: spec.predictor,
-          rows: tileLength,
-          columns: tileWidth,
-          samplesPerPixel: spec.samplesPerPixel,
-          bitsPerSample: spec.bitsPerSample,
-          endian: endian,
-        ));
+        chunks.add(
+          ChunkEncoder.encodeChunk(
+            samples: tileSamples,
+            compression: spec.compression,
+            predictor: spec.predictor,
+            rows: tileLength,
+            columns: tileWidth,
+            samplesPerPixel: spec.samplesPerPixel,
+            bitsPerSample: spec.bitsPerSample,
+            endian: endian,
+          ),
+        );
       }
     }
     return chunks;
@@ -70,8 +76,14 @@ class TileWriter {
       IfdField(TiffTagId.tileLength, TiffTagType.tLong, [spec.tileLength!]),
       // Values are a zero placeholder here; TiffWriter patches in the real
       // offsets once pixel-data placement is known (see its top-level doc).
-      IfdField(TiffTagId.tileOffsets, offsetType, List.filled(chunks.length, 0)),
-      IfdField(TiffTagId.tileByteCounts, offsetType, [for (final c in chunks) c.length]),
+      IfdField(
+        TiffTagId.tileOffsets,
+        offsetType,
+        List.filled(chunks.length, 0),
+      ),
+      IfdField(TiffTagId.tileByteCounts, offsetType, [
+        for (final c in chunks) c.length,
+      ]),
     ];
   }
 }

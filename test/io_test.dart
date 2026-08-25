@@ -22,7 +22,9 @@ void main() {
     test('reads bytes matching the file content across window boundaries', () {
       // Large enough to force the source's internal window to be refilled
       // more than once as we read around in it.
-      final content = Uint8List.fromList(List.generate(200000, (i) => i & 0xFF));
+      final content = Uint8List.fromList(
+        List.generate(200000, (i) => i & 0xFF),
+      );
       final file = File('${tempDir.path}/data.bin')..writeAsBytesSync(content);
 
       final source = FileByteSource.open(file);
@@ -40,7 +42,8 @@ void main() {
     });
 
     test('throws when reading past the end of the file', () {
-      final file = File('${tempDir.path}/small.bin')..writeAsBytesSync(Uint8List(10));
+      final file = File('${tempDir.path}/small.bin')
+        ..writeAsBytesSync(Uint8List(10));
       final source = FileByteSource.open(file);
       addTearDown(source.close);
 
@@ -68,8 +71,14 @@ void main() {
 
       final memoryDoc = TiffDecoder.decode(bytes);
 
-      expect(fileDoc.images.single.decode().samples, memoryDoc.images.single.decode().samples);
-      expect(fileDoc.images.single.metadata.width, memoryDoc.images.single.metadata.width);
+      expect(
+        fileDoc.images.single.decode().samples,
+        memoryDoc.images.single.decode().samples,
+      );
+      expect(
+        fileDoc.images.single.metadata.width,
+        memoryDoc.images.single.metadata.width,
+      );
     });
   });
 }

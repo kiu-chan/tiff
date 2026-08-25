@@ -39,7 +39,9 @@ class TiffWriter {
 
     final pageChunks = [
       for (final spec in pages)
-        spec.isTiled ? TileWriter.buildChunks(spec, endian) : StripWriter.buildChunks(spec, endian),
+        spec.isTiled
+            ? TileWriter.buildChunks(spec, endian)
+            : StripWriter.buildChunks(spec, endian),
     ];
 
     var totalPixelDataBytes = 0;
@@ -49,8 +51,10 @@ class TiffWriter {
       }
     }
 
-    final isBigTiff =
-        BigTiffPromotion.shouldUseBigTiff(totalPixelDataBytes: totalPixelDataBytes, forceBigTiff: forceBigTiff);
+    final isBigTiff = BigTiffPromotion.shouldUseBigTiff(
+      totalPixelDataBytes: totalPixelDataBytes,
+      forceBigTiff: forceBigTiff,
+    );
     final offsetType = isBigTiff ? TiffTagType.tLong8 : TiffTagType.tLong;
 
     final entrySize = isBigTiff ? 20 : 12;
@@ -64,11 +68,18 @@ class TiffWriter {
 
     var cursor = headerSize;
     for (var p = 0; p < pages.length; p++) {
-      final fields = _buildFields(spec: pages[p], chunks: pageChunks[p], offsetType: offsetType)
-        ..sort((a, b) => a.tagId.compareTo(b.tagId));
+      final fields = _buildFields(
+        spec: pages[p],
+        chunks: pageChunks[p],
+        offsetType: offsetType,
+      )..sort((a, b) => a.tagId.compareTo(b.tagId));
 
       final ifdStart = cursor;
-      var overflowCursor = ifdStart + countFieldSize + fields.length * entrySize + offsetFieldSize;
+      var overflowCursor =
+          ifdStart +
+          countFieldSize +
+          fields.length * entrySize +
+          offsetFieldSize;
       final overflowOffsets = List<int?>.filled(fields.length, null);
 
       for (var i = 0; i < fields.length; i++) {
@@ -99,19 +110,30 @@ class TiffWriter {
 
     if (!isBigTiff && dataCursor > BigTiffPromotion.classicOffsetLimit) {
       throw const TiffException(
-          'Total file size exceeds the 4 GiB Classic TIFF limit; pass bigTiff: true '
-          '(or leave it unset to auto-promote)');
+        'Total file size exceeds the 4 GiB Classic TIFF limit; pass bigTiff: true '
+        '(or leave it unset to auto-promote)',
+      );
     }
 
     final out = Uint8List(dataCursor);
     final data = ByteData.sublistView(out);
-    _writeHeader(out, data, isBigTiff: isBigTiff, endian: endian, firstIfdOffset: pageIfdStarts.first);
+    _writeHeader(
+      out,
+      data,
+      isBigTiff: isBigTiff,
+      endian: endian,
+      firstIfdOffset: pageIfdStarts.first,
+    );
 
     for (var p = 0; p < pages.length; p++) {
-      final offsetTagId = pages[p].isTiled ? TiffTagId.tileOffsets : TiffTagId.stripOffsets;
+      final offsetTagId = pages[p].isTiled
+          ? TiffTagId.tileOffsets
+          : TiffTagId.stripOffsets;
       final fields = [
         for (final f in pageFields[p])
-          f.tagId == offsetTagId ? IfdField(f.tagId, f.type, pageChunkOffsets[p]) : f,
+          f.tagId == offsetTagId
+              ? IfdField(f.tagId, f.type, pageChunkOffsets[p])
+              : f,
       ];
       final nextIfdOffset = p < pages.length - 1 ? pageIfdStarts[p + 1] : 0;
 
@@ -127,7 +149,11 @@ class TiffWriter {
       );
 
       for (var c = 0; c < pageChunks[p].length; c++) {
-        out.setRange(pageChunkOffsets[p][c], pageChunkOffsets[p][c] + pageChunks[p][c].length, pageChunks[p][c]);
+        out.setRange(
+          pageChunkOffsets[p][c],
+          pageChunkOffsets[p][c] + pageChunks[p][c].length,
+          pageChunks[p][c],
+        );
       }
     }
 
@@ -195,14 +221,22 @@ class TiffWriter {
       final valueBytes = _encodeFieldValues(field, endian);
       final overflowOffset = overflowOffsets[i];
       if (overflowOffset == null) {
-        out.setRange(valueFieldOffset, valueFieldOffset + valueBytes.length, valueBytes);
+        out.setRange(
+          valueFieldOffset,
+          valueFieldOffset + valueBytes.length,
+          valueBytes,
+        );
       } else {
         if (!isBigTiff) {
           data.setUint32(valueFieldOffset, overflowOffset, endian);
         } else {
           data.setUint64(valueFieldOffset, overflowOffset, endian);
         }
-        out.setRange(overflowOffset, overflowOffset + valueBytes.length, valueBytes);
+        out.setRange(
+          overflowOffset,
+          overflowOffset + valueBytes.length,
+          valueBytes,
+        );
       }
     }
 
@@ -222,21 +256,43 @@ class TiffWriter {
     final fields = <IfdField>[
       IfdField(TiffTagId.imageWidth, TiffTagType.tLong, [spec.width]),
       IfdField(TiffTagId.imageLength, TiffTagType.tLong, [spec.height]),
-      IfdField(TiffTagId.bitsPerSample, TiffTagType.tShort, List.filled(spec.samplesPerPixel, spec.bitsPerSample)),
+      IfdField(
+        TiffTagId.bitsPerSample,
+        TiffTagType.tShort,
+        List.filled(spec.samplesPerPixel, spec.bitsPerSample),
+      ),
       IfdField(TiffTagId.compression, TiffTagType.tShort, [spec.compression]),
-      IfdField(TiffTagId.photometricInterpretation, TiffTagType.tShort, [spec.photometric.code]),
-      IfdField(TiffTagId.samplesPerPixel, TiffTagType.tShort, [spec.samplesPerPixel]),
+      IfdField(TiffTagId.photometricInterpretation, TiffTagType.tShort, [
+        spec.photometric.code,
+      ]),
+      IfdField(TiffTagId.samplesPerPixel, TiffTagType.tShort, [
+        spec.samplesPerPixel,
+      ]),
       IfdField(TiffTagId.planarConfiguration, TiffTagType.tShort, [1]),
     ];
     if (spec.predictor != 1) {
-      fields.add(IfdField(TiffTagId.predictor, TiffTagType.tShort, [spec.predictor]));
+      fields.add(
+        IfdField(TiffTagId.predictor, TiffTagType.tShort, [spec.predictor]),
+      );
     }
     if (spec.colorMap != null) {
-      fields.add(IfdField(TiffTagId.colorMap, TiffTagType.tShort, spec.colorMap!));
+      fields.add(
+        IfdField(TiffTagId.colorMap, TiffTagType.tShort, spec.colorMap!),
+      );
     }
-    fields.addAll(spec.isTiled
-        ? TileWriter.buildFields(spec: spec, chunks: chunks, offsetType: offsetType)
-        : StripWriter.buildFields(spec: spec, chunks: chunks, offsetType: offsetType));
+    fields.addAll(
+      spec.isTiled
+          ? TileWriter.buildFields(
+              spec: spec,
+              chunks: chunks,
+              offsetType: offsetType,
+            )
+          : StripWriter.buildFields(
+              spec: spec,
+              chunks: chunks,
+              offsetType: offsetType,
+            ),
+    );
     return fields;
   }
 
@@ -252,7 +308,9 @@ class TiffWriter {
       } else if (field.type == TiffTagType.tLong8) {
         bd.setUint64(off, field.values[i], endian);
       } else {
-        throw TiffException('Writing tag type ${field.type} is not supported yet');
+        throw TiffException(
+          'Writing tag type ${field.type} is not supported yet',
+        );
       }
     }
     return bytes;

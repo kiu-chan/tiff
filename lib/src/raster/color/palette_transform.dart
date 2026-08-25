@@ -12,14 +12,19 @@ import '../raster_buffer.dart';
 class PaletteTransform {
   const PaletteTransform._();
 
-  static Uint8List toRgba8(TiffRasterBuffer raster, TiffImageMetadata metadata) {
+  static Uint8List toRgba8(
+    TiffRasterBuffer raster,
+    TiffImageMetadata metadata,
+  ) {
     final colorMap = metadata.colorMap;
     if (colorMap == null) {
       throw const TiffException('Palette photometric requires a ColorMap tag');
     }
     final entries = 1 << raster.bitsPerSample;
     if (colorMap.length < entries * 3) {
-      throw TiffException('ColorMap has ${colorMap.length} entries, expected at least ${entries * 3}');
+      throw TiffException(
+        'ColorMap has ${colorMap.length} entries, expected at least ${entries * 3}',
+      );
     }
 
     final pixelCount = raster.width * raster.height;

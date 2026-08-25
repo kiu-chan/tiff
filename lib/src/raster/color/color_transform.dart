@@ -16,10 +16,15 @@ import 'ycbcr_transform.dart';
 class ColorTransform {
   const ColorTransform._();
 
-  static Uint8List toRgba8(TiffImageMetadata metadata, TiffRasterBuffer raster) {
+  static Uint8List toRgba8(
+    TiffImageMetadata metadata,
+    TiffRasterBuffer raster,
+  ) {
     final photometric = metadata.photometric;
     if (photometric == null) {
-      throw const TiffException('Cannot convert to RGBA: PhotometricInterpretation tag is missing');
+      throw const TiffException(
+        'Cannot convert to RGBA: PhotometricInterpretation tag is missing',
+      );
     }
 
     switch (photometric) {
@@ -34,15 +39,19 @@ class ColorTransform {
       case TiffPhotometric.cmyk:
         return CmykTransform.toRgba8(raster);
       case TiffPhotometric.ycbcr:
-        final subsampling = metadata.rawTags[TiffTagId.yCbCrSubSampling]?.asIntList() ?? [2, 2];
+        final subsampling =
+            metadata.rawTags[TiffTagId.yCbCrSubSampling]?.asIntList() ?? [2, 2];
         if (subsampling[0] != 1 || subsampling[1] != 1) {
           throw TiffException(
-              'Subsampled YCbCr (${subsampling[0]}x${subsampling[1]}) is not supported yet; only 1x1 (no subsampling) is supported');
+            'Subsampled YCbCr (${subsampling[0]}x${subsampling[1]}) is not supported yet; only 1x1 (no subsampling) is supported',
+          );
         }
         return YCbCrTransform.toRgba8(raster);
       case TiffPhotometric.transparencyMask:
       case TiffPhotometric.cielab:
-        throw TiffException('PhotometricInterpretation ${photometric.name} is not supported yet');
+        throw TiffException(
+          'PhotometricInterpretation ${photometric.name} is not supported yet',
+        );
     }
   }
 }

@@ -19,7 +19,9 @@ void main() {
         ..addTag(TiffTagId.samplesPerPixel, TiffTagType.tShort, [3])
         ..addTag(TiffTagId.compression, TiffTagType.tShort, [1])
         ..addTag(TiffTagId.photometricInterpretation, TiffTagType.tShort, [2])
-        ..addStripOffsetsTag(TiffTagId.stripOffsets, TiffTagType.tLong, [samples.length])
+        ..addStripOffsetsTag(TiffTagId.stripOffsets, TiffTagType.tLong, [
+          samples.length,
+        ])
         ..addTag(TiffTagId.stripByteCounts, TiffTagType.tLong, [samples.length])
         ..setPixelData(Uint8List.fromList(samples));
 
@@ -45,7 +47,10 @@ void main() {
       final spec = TiffImageAdapter.toTiffImageSpec(image);
       final bytes = TiffEncoder.encode([spec]);
       final decoded = TiffDecoder.decode(bytes).images.single;
-      expect(decoded.decode().samples, image.getBytes(order: img.ChannelOrder.rgb));
+      expect(
+        decoded.decode().samples,
+        image.getBytes(order: img.ChannelOrder.rgb),
+      );
     });
 
     test('toTiffImageSpec() keeps alpha when asked and the source has it', () {
@@ -57,7 +62,10 @@ void main() {
       expect(spec.samplesPerPixel, 4);
       final bytes = TiffEncoder.encode([spec]);
       final decoded = TiffDecoder.decode(bytes).images.single;
-      expect(decoded.decode().samples, image.getBytes(order: img.ChannelOrder.rgba));
+      expect(
+        decoded.decode().samples,
+        image.getBytes(order: img.ChannelOrder.rgba),
+      );
     });
   });
 
@@ -80,8 +88,12 @@ void main() {
         ..addTag(TiffTagId.samplesPerPixel, TiffTagType.tShort, [3])
         ..addTag(TiffTagId.compression, TiffTagType.tShort, [7])
         ..addTag(TiffTagId.photometricInterpretation, TiffTagType.tShort, [2])
-        ..addStripOffsetsTag(TiffTagId.stripOffsets, TiffTagType.tLong, [jpegBytes.length])
-        ..addTag(TiffTagId.stripByteCounts, TiffTagType.tLong, [jpegBytes.length])
+        ..addStripOffsetsTag(TiffTagId.stripOffsets, TiffTagType.tLong, [
+          jpegBytes.length,
+        ])
+        ..addTag(TiffTagId.stripByteCounts, TiffTagType.tLong, [
+          jpegBytes.length,
+        ])
         ..setPixelData(jpegBytes);
 
       final page = TiffDecoder.decode(builder.build()).images.single;
@@ -89,7 +101,9 @@ void main() {
 
       // JPEG is lossy, so compare against re-decoding our own encoded bytes
       // rather than the original source samples.
-      final reference = img.decodeJpg(jpegBytes)!.getBytes(order: img.ChannelOrder.rgb);
+      final reference = img
+          .decodeJpg(jpegBytes)!
+          .getBytes(order: img.ChannelOrder.rgb);
       expect(decoded.samples, reference);
     });
 

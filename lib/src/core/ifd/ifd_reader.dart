@@ -21,7 +21,11 @@ class IfdReadResult {
 class TiffIfdReader {
   const TiffIfdReader._();
 
-  static IfdReadResult read(TiffByteReader reader, int offset, {required bool isBigTiff}) {
+  static IfdReadResult read(
+    TiffByteReader reader,
+    int offset, {
+    required bool isBigTiff,
+  }) {
     final entrySize = isBigTiff ? 20 : 12;
     final offsetFieldSize = isBigTiff ? 8 : 4;
 
@@ -41,31 +45,42 @@ class TiffIfdReader {
       final tagId = reader.readUint16(entryOffset);
       final rawTypeCode = reader.readUint16(entryOffset + 2);
       final type = TiffTagType.fromCode(rawTypeCode);
-      final count = isBigTiff ? reader.readUint64(entryOffset + 4) : reader.readUint32(entryOffset + 4);
+      final count = isBigTiff
+          ? reader.readUint64(entryOffset + 4)
+          : reader.readUint32(entryOffset + 4);
       final valueFieldOffset = entryOffset + (isBigTiff ? 12 : 8);
       final valueField = reader.readBytes(valueFieldOffset, offsetFieldSize);
-      entries.add(TiffIfdEntry(
-        tagId: tagId,
-        type: type,
-        rawTypeCode: rawTypeCode,
-        count: count,
-        valueField: valueField,
-      ));
+      entries.add(
+        TiffIfdEntry(
+          tagId: tagId,
+          type: type,
+          rawTypeCode: rawTypeCode,
+          count: count,
+          valueField: valueField,
+        ),
+      );
     }
 
     final nextOffsetPosition = cursor + entryCount * entrySize;
-    final nextIfdOffset =
-        isBigTiff ? reader.readUint64(nextOffsetPosition) : reader.readUint32(nextOffsetPosition);
+    final nextIfdOffset = isBigTiff
+        ? reader.readUint64(nextOffsetPosition)
+        : reader.readUint32(nextOffsetPosition);
 
     return IfdReadResult(entries, nextIfdOffset);
   }
 
   /// Resolves an entry's actual value(s), following the offset into the
   /// file body when the value doesn't fit inline in the value/offset field.
-  static TiffTagValue resolveValue(TiffByteReader reader, TiffIfdEntry entry, {required bool isBigTiff}) {
+  static TiffTagValue resolveValue(
+    TiffByteReader reader,
+    TiffIfdEntry entry, {
+    required bool isBigTiff,
+  }) {
     final type = entry.type;
     if (type == null) {
-      throw TiffException('Unsupported tag type code ${entry.rawTypeCode} for tag ${entry.tagId}');
+      throw TiffException(
+        'Unsupported tag type code ${entry.rawTypeCode} for tag ${entry.tagId}',
+      );
     }
 
     final totalBytes = type.byteSize * entry.count;
@@ -76,7 +91,9 @@ class TiffIfdReader {
       dataBytes = entry.valueField;
     } else {
       final fieldData = ByteData.sublistView(entry.valueField);
-      final valueOffset = isBigTiff ? fieldData.getUint64(0, reader.endian) : fieldData.getUint32(0, reader.endian);
+      final valueOffset = isBigTiff
+          ? fieldData.getUint64(0, reader.endian)
+          : fieldData.getUint32(0, reader.endian);
       dataBytes = reader.readBytes(valueOffset, totalBytes);
     }
 
@@ -84,7 +101,9 @@ class TiffIfdReader {
 
     if (type == TiffTagType.tAscii) {
       final nullIndex = dataBytes.indexOf(0);
-      final stringBytes = nullIndex >= 0 ? dataBytes.sublist(0, nullIndex) : dataBytes;
+      final stringBytes = nullIndex >= 0
+          ? dataBytes.sublist(0, nullIndex)
+          : dataBytes;
       return TiffTagValue.ascii(String.fromCharCodes(stringBytes));
     }
 
@@ -93,19 +112,27 @@ class TiffIfdReader {
       final rationals = <TiffRational>[];
       for (var i = 0; i < entry.count; i++) {
         final off = i * 8;
-        final n = signed ? valueReader.readInt32(off) : valueReader.readUint32(off);
-        final d = signed ? valueReader.readInt32(off + 4) : valueReader.readUint32(off + 4);
+        final n = signed
+            ? valueReader.readInt32(off)
+            : valueReader.readUint32(off);
+        final d = signed
+            ? valueReader.readInt32(off + 4)
+            : valueReader.readUint32(off + 4);
         rationals.add(TiffRational(n, d));
       }
       return TiffTagValue.rationals(type, rationals);
     }
 
     if (type == TiffTagType.tFloat) {
-      return TiffTagValue.floats(type, [for (var i = 0; i < entry.count; i++) valueReader.readFloat32(i * 4)]);
+      return TiffTagValue.floats(type, [
+        for (var i = 0; i < entry.count; i++) valueReader.readFloat32(i * 4),
+      ]);
     }
 
     if (type == TiffTagType.tDouble) {
-      return TiffTagValue.floats(type, [for (var i = 0; i < entry.count; i++) valueReader.readFloat64(i * 8)]);
+      return TiffTagValue.floats(type, [
+        for (var i = 0; i < entry.count; i++) valueReader.readFloat64(i * 8),
+      ]);
     }
 
     // Remaining types are all integer families of a fixed byte size:
@@ -116,16 +143,32 @@ class TiffIfdReader {
       final off = i * type.byteSize;
       switch (type.byteSize) {
         case 1:
-          ints.add(type == TiffTagType.tSbyte ? valueReader.readInt8(off) : valueReader.readUint8(off));
+          ints.add(
+            type == TiffTagType.tSbyte
+                ? valueReader.readInt8(off)
+                : valueReader.readUint8(off),
+          );
           break;
         case 2:
-          ints.add(type == TiffTagType.tSshort ? valueReader.readInt16(off) : valueReader.readUint16(off));
+          ints.add(
+            type == TiffTagType.tSshort
+                ? valueReader.readInt16(off)
+                : valueReader.readUint16(off),
+          );
           break;
         case 4:
-          ints.add(type == TiffTagType.tSlong ? valueReader.readInt32(off) : valueReader.readUint32(off));
+          ints.add(
+            type == TiffTagType.tSlong
+                ? valueReader.readInt32(off)
+                : valueReader.readUint32(off),
+          );
           break;
         case 8:
-          ints.add(type == TiffTagType.tSlong8 ? valueReader.readInt64(off) : valueReader.readUint64(off));
+          ints.add(
+            type == TiffTagType.tSlong8
+                ? valueReader.readInt64(off)
+                : valueReader.readUint64(off),
+          );
           break;
       }
     }
