@@ -1,0 +1,18 @@
+name: tiff
+description: "Dart library for reading and writing TIFF and BigTIFF image files — tags, IFDs, strips/tiles, and common compression schemes."
+version: 0.1.0
+homepage: https://github.com/kiu-chan/tiff
+repository: https://github.com/kiu-chan/tiff
+issue_tracker: https://github.com/kiu-chan/tiff/issues
+topics:
+  - tiff
+  - bigtiff
+  - image
+  - codec
+
+environment:
+  sdk: ^3.12.2
+
+dev_dependencies:
+  flutter_lints: ^6.0.0
+  test: ^1.28.0
