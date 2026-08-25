@@ -21,3 +21,11 @@
   compression, the horizontal differencing predictor, and Palette/ColorMap
   images. BigTIFF is auto-selected once the encoded pixel data approaches
   the 4 GiB Classic offset limit (or force it explicitly either way).
+- Phase 5: CCITT Group 3/4 fax decoding (Compression 2/3/4 — Modified
+  Huffman, Group 3 2D, and Group 4/T.6), decode-only; GeoTIFF metadata
+  (`ModelPixelScale`/`ModelTiepoint`/`ModelTransformation`/GeoKeyDirectory)
+  and EXIF/GPS sub-IFD parsing on `TiffImageMetadata`; and an optional
+  `package:image` bridge (`package:tiff/tiff_image_adapter.dart`) for
+  converting to/from `image.Image` and for decoding JPEG-compressed TIFF
+  pages (Compression 6/7), kept out of the core library's import graph so
+  `package:tiff/tiff.dart` alone never touches `package:image`'s API.

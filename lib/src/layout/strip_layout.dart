@@ -66,6 +66,9 @@ class StripLayout {
         samplesPerPixel: samplesPerPixel,
         bitsPerSample: bitsPerSample,
         endian: reader.endian,
+        t4Options: metadata.t4Options,
+        t6Options: metadata.t6Options,
+        jpegTables: metadata.jpegTables,
       );
 
       for (var r = 0; r < rowsInThisStrip; r++) {

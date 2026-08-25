@@ -20,6 +20,8 @@ class TiffTagId {
   static const int xResolution = 282;
   static const int yResolution = 283;
   static const int planarConfiguration = 284;
+  static const int t4Options = 292;
+  static const int t6Options = 293;
   static const int resolutionUnit = 296;
   static const int predictor = 317;
   static const int colorMap = 320;
@@ -29,5 +31,18 @@ class TiffTagId {
   static const int tileByteCounts = 325;
   static const int extraSamples = 338;
   static const int sampleFormat = 339;
+  static const int jpegTables = 347;
   static const int yCbCrSubSampling = 530;
+
+  // GeoTIFF (not part of baseline TIFF 6.0, but a de facto standard).
+  static const int modelPixelScale = 33550;
+  static const int modelTiepoint = 33922;
+  static const int modelTransformation = 34264;
+  static const int geoKeyDirectory = 34735;
+  static const int geoDoubleParams = 34736;
+  static const int geoAsciiParams = 34737;
+
+  // EXIF/GPS sub-IFD pointers.
+  static const int exifIfd = 34665;
+  static const int gpsInfoIfd = 34853;
 }

@@ -19,6 +19,14 @@ class TiffFixtureBuilder {
     _tags.add(_Tag(id, type, values));
   }
 
+  void addDoubleTag(int id, List<double> values) {
+    _tags.add(_Tag(id, TiffTagType.tDouble, List.filled(values.length, 0), doubleValues: values));
+  }
+
+  void addAsciiTag(int id, String value) {
+    _tags.add(_Tag(id, TiffTagType.tAscii, List.filled(value.length + 1, 0), asciiValue: value));
+  }
+
   /// Adds a StripOffsets/TileOffsets tag whose values are computed
   /// automatically from [byteCounts] (one entry per strip/tile) once the
   /// pixel data location is known, so callers don't need to hand-compute
@@ -47,7 +55,7 @@ class TiffFixtureBuilder {
     final overflowOffsets = <int?>[];
     var overflowCursor = ifdEnd;
     for (final tag in tags) {
-      final bytes = _encodeValues(tag.type, tag.values);
+      final bytes = _encodeTag(tag);
       valueBytesList.add(bytes);
       if (bytes.length > inlineLimit) {
         overflowOffsets.add(overflowCursor);
@@ -146,6 +154,25 @@ class TiffFixtureBuilder {
     return out;
   }
 
+  Uint8List _encodeTag(_Tag tag) {
+    if (tag.asciiValue != null) {
+      final text = tag.asciiValue!;
+      final bytes = Uint8List(text.length + 1);
+      bytes.setRange(0, text.length, text.codeUnits);
+      return bytes;
+    }
+    if (tag.doubleValues != null) {
+      final values = tag.doubleValues!;
+      final bytes = Uint8List(values.length * 8);
+      final bd = ByteData.sublistView(bytes);
+      for (var i = 0; i < values.length; i++) {
+        bd.setFloat64(i * 8, values[i], endian);
+      }
+      return bytes;
+    }
+    return _encodeValues(tag.type, tag.values);
+  }
+
   Uint8List _encodeValues(TiffTagType type, List<int> values) {
     final bytes = Uint8List(values.length * type.byteSize);
     final bd = ByteData.sublistView(bytes);
@@ -168,6 +195,8 @@ class _Tag {
   final TiffTagType type;
   final List<int> values;
   final List<int>? stripByteCounts;
+  final List<double>? doubleValues;
+  final String? asciiValue;
 
-  _Tag(this.id, this.type, this.values, {this.stripByteCounts});
+  _Tag(this.id, this.type, this.values, {this.stripByteCounts, this.doubleValues, this.asciiValue});
 }

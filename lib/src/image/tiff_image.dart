@@ -17,8 +17,8 @@ class TiffImage {
 
   const TiffImage._(this.metadata, this._reader);
 
-  factory TiffImage.fromTags(Map<int, TiffTagValue> tags, TiffByteReader reader) =>
-      TiffImage._(TiffImageMetadata.fromTags(tags), reader);
+  factory TiffImage.fromTags(Map<int, TiffTagValue> tags, TiffByteReader reader, {required bool isBigTiff}) =>
+      TiffImage._(TiffImageMetadata.fromTags(tags, reader: reader, isBigTiff: isBigTiff), reader);
 
   /// Decodes this page's pixel data into raw, unpacked samples (no color
   /// interpretation applied — see [decodeRgba8] for that).

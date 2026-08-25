@@ -71,6 +71,9 @@ class TileLayout {
           samplesPerPixel: samplesPerPixel,
           bitsPerSample: bitsPerSample,
           endian: reader.endian,
+          t4Options: metadata.t4Options,
+          t6Options: metadata.t6Options,
+          jpegTables: metadata.jpegTables,
         );
 
         final originX = tx * tileWidth;

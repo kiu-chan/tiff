@@ -36,7 +36,7 @@ class TiffDecoder {
         tags[entry.tagId] = TiffIfdReader.resolveValue(reader, entry, isBigTiff: header.isBigTiff);
       }
 
-      images.add(TiffImage.fromTags(tags, reader));
+      images.add(TiffImage.fromTags(tags, reader, isBigTiff: header.isBigTiff));
       nextIfdOffset = result.nextIfdOffset == 0 ? null : result.nextIfdOffset;
     }
 

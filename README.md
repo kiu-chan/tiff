@@ -4,8 +4,10 @@ Dart library for reading and writing TIFF and BigTIFF image files — tags, IFDs
 
 ## Status
 
-Phases 1-4 implemented: reading and writing Classic TIFF and BigTIFF, strip
-and tile data, common compression schemes, and RGBA color conversion.
+Phases 1-5 implemented: reading and writing Classic TIFF and BigTIFF, strip
+and tile data, common compression schemes (including CCITT fax and, via an
+optional adapter, JPEG), GeoTIFF/EXIF/GPS metadata, and RGBA color
+conversion.
 
 ## Features
 
@@ -14,7 +16,9 @@ and tile data, common compression schemes, and RGBA color conversion.
 - [x] IFD / tag parsing (all baseline tag types, incl. BigTIFF LONG8/SLONG8/IFD8)
 - [x] Strip decoding and encoding
 - [x] Tile decoding and encoding (incl. cropped/padded edge tiles)
-- [x] Compression: None, PackBits, LZW, Deflate/ZIP (read and write)
+- [x] Compression: None, PackBits, LZW, Deflate/ZIP (read and write);
+      CCITT Group 3/4 fax (read only — see note below); JPEG (read only,
+      via the optional `package:image` adapter)
 - [x] Horizontal differencing predictor (read and write)
 - [x] RGBA8 color conversion: WhiteIsZero/BlackIsZero, RGB(+alpha), Palette,
       CMYK, non-subsampled YCbCr
@@ -22,8 +26,13 @@ and tile data, common compression schemes, and RGBA color conversion.
       (`package:tiff/tiff_io.dart`)
 - [x] Region-of-interest decoding (skip strips/tiles outside a requested crop)
 - [x] Multi-page writing
-- [ ] JPEG-in-TIFF, CCITT Group 3/4 compression
-- [ ] GeoTIFF / EXIF metadata
+- [x] GeoTIFF metadata (ModelPixelScale/Tiepoint/Transformation, GeoKeyDirectory)
+- [x] EXIF / GPS sub-IFD parsing
+- [x] Optional `package:image` bridge (`package:tiff/tiff_image_adapter.dart`):
+      convert to/from `image.Image`, and decode JPEG-compressed TIFF pages
+
+CCITT Group 3/4 (Compression 2/3/4) is decode-only — virtually no modern
+software *writes* new Group 3/4 data, so encoding it isn't implemented.
 
 ## Getting started
 
@@ -94,6 +103,50 @@ void main() {
   File('output.tif').writeAsBytesSync(bytes);
 }
 ```
+
+Reading GeoTIFF/EXIF metadata (present on the decoded page's `metadata`, no
+extra setup needed):
+
+```dart
+final metadata = page.metadata;
+final geo = metadata.geoTiff; // null if the file has no GeoTIFF tags
+if (geo != null) {
+  print(geo.modelPixelScale); // [scaleX, scaleY, scaleZ]
+  print(geo.geoKeys[GeoTiffKeyId.gtModelType]);
+}
+print(metadata.exifTags?[ExifTagId.dateTimeOriginal]?.asString());
+```
+
+### Optional: `package:image` bridge
+
+`package:tiff/tiff.dart` never depends on `package:image` — that stays a
+lightweight import for anyone who only needs raw TIFF pixels. Import
+`package:tiff/tiff_image_adapter.dart` as well to convert to/from
+`image.Image`, or to decode JPEG-compressed TIFF pages (Compression 6/7),
+which TIFF's baseline spec has no bundled codec for:
+
+```dart
+import 'package:tiff/tiff.dart';
+import 'package:tiff/tiff_image_adapter.dart';
+
+void main() {
+  TiffImageAdapter.enableJpegSupport(); // needed once, only for Compression 6/7 pages
+
+  final page = TiffDecoder.decode(bytes).images.first;
+  final image = TiffImageAdapter.toImage(page); // an image.Image, ready for
+  // cropping/resizing/PNG export/etc. via package:image
+
+  final spec = TiffImageAdapter.toTiffImageSpec(image); // back to TIFF
+  File('roundtrip.tif').writeAsBytesSync(TiffEncoder.encode([spec]));
+}
+```
+
+Note: `package:image` is still a normal (if rarely large) entry in this
+package's `pubspec.yaml` — Dart has no per-file-optional dependency
+mechanism, so `dart pub get` fetches it for every consumer regardless of
+whether `tiff_image_adapter.dart` is ever imported. "Optional" here means
+your own code never has to touch `package:image`'s API (or pay for importing
+it) unless you choose to.
 
 ## License
 
