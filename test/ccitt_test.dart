@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:test/test.dart';
@@ -130,6 +131,76 @@ void main() {
         throwsA(isA<TiffException>()),
       );
     });
+
+    test(
+      'decodes a real, complex Group 4 fax page (testfax4.tiff from libtiff\'s '
+      'own test suite)',
+      () {
+        // Regression test for a real bug: a 2D-coded row can legitimately
+        // pair a zero-length white run with a zero-length black run (a real
+        // encoder emitted exactly this on row 234 of this file). Silently
+        // dropping that entry — which _addPixels/_addPixelsNeg used to do,
+        // via a strict `>` comparison instead of `>=` — throws off every
+        // later row's Pass-mode reference-line indexing (it counts array
+        // slots, not just positions), corrupting the image from that point
+        // on. Traced by comparing bit-for-bit against libtiff's own,
+        // differently-structured (run-length-array-based) decoder. Expected
+        // pixel values below were cross-checked against macOS's ImageIO
+        // (via `sips`) decoding the same file — full 8.26M-pixel comparison
+        // showed a 100% exact match after the fix.
+        final bytes = File('test/fixtures/testfax4.tiff').readAsBytesSync();
+        final page = TiffDecoder.decode(bytes).images.single;
+        expect(page.metadata.width, 2453);
+        expect(page.metadata.height, 3369);
+        expect(page.metadata.compression, 4);
+        final raster = page.decode();
+
+        // WhiteIsZero: sample 0 = white, 1 = black.
+        bool isBlack(int x, int y) => raster.sampleAt(x, y, 0) == 1;
+        expect(isBlack(0, 0), isTrue);
+        expect(isBlack(500, 0), isTrue);
+        expect(isBlack(1000, 461), isTrue);
+        expect(isBlack(2000, 461), isFalse);
+        expect(isBlack(30, 235), isTrue);
+        expect(isBlack(306, 235), isTrue);
+        expect(isBlack(100, 3368), isTrue);
+        expect(isBlack(2000, 3368), isTrue);
+        expect(isBlack(500, 1500), isFalse);
+        expect(isBlack(2000, 2000), isFalse);
+      },
+    );
+
+    test(
+      'decodes a real Group 3 1D fax page with no EOL codes between rows '
+      '(another libtiff test fixture, multi-strip)',
+      () {
+        // This file is libtiff's own regression fixture for a specific old
+        // bug: some encoders write Group 3 1D data with no EOL sync code
+        // between rows at all. Cross-checked against ImageMagick (100% exact
+        // match, all 4,008,960 pixels) rather than macOS's `sips` — `sips`
+        // itself mis-renders this one specific file (fully inverted), and
+        // Python/Pillow's libtiff binding refuses to decode it outright;
+        // ImageMagick was the tie-breaker that agreed with this decoder.
+        final bytes = File(
+          'test/fixtures/testfax3_bug54_1dnoEOL.tif',
+        ).readAsBytesSync();
+        final page = TiffDecoder.decode(bytes).images.single;
+        expect(page.metadata.width, 1728);
+        expect(page.metadata.height, 2320);
+        expect(page.metadata.compression, 3);
+        final raster = page.decode();
+
+        bool isBlack(int x, int y) => raster.sampleAt(x, y, 0) == 1;
+        expect(isBlack(5, 0), isFalse);
+        expect(isBlack(5, 200), isFalse);
+        expect(isBlack(841, 110), isTrue);
+        expect(isBlack(845, 110), isFalse);
+        expect(isBlack(837, 111), isTrue);
+        expect(isBlack(849, 111), isFalse);
+        expect(isBlack(700, 143), isTrue);
+        expect(isBlack(1000, 150), isFalse);
+      },
+    );
   });
 
   group('CCITT Group 3 1D (Modified Huffman) decode', () {

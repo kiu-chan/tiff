@@ -332,15 +332,28 @@ class CcittFaxDecoder {
           eof = true;
           break;
         default:
+          // Unreachable in practice: _getTwoDimCode() only ever returns a
+          // real mode or _ccittEof, matching the reference decoder's own
+          // contract — kept only as a non-throwing fallback for parity with
+          // it (see _getTwoDimCode's doc comment for why this can't crash).
           _addPixels(columns, 0);
           err = true;
-          throw const TiffException('Invalid CCITT 2D mode code');
       }
     }
   }
 
+  // The `>=` (not strict `>`) matters: a 2D-coded run legitimately can be
+  // zero-length (e.g. a Horizontal-mode code pairing a 0-length white run
+  // with a 0-length black run — real encoders emit this). Rejecting a1 ==
+  // codingLine[codingPos] would silently drop that entry instead of
+  // recording it, which throws off every later row's Pass-mode reference
+  // line indexing (it counts array slots, not just positions) — this was a
+  // real, verified bug: a genuine Group 4 TIFF from libtiff's own test
+  // suite decoded correctly for hundreds of rows and then desynced
+  // entirely, traced by comparing bit-for-bit against libtiff's own
+  // (differently-structured, run-length-array-based) decoder.
   void _addPixels(int a1, int blackPixels) {
-    if (a1 > codingLine[codingPos]) {
+    if (a1 >= codingLine[codingPos]) {
       if (a1 > columns) {
         err = true;
         a1 = columns;
@@ -353,7 +366,7 @@ class CcittFaxDecoder {
   }
 
   void _addPixelsNeg(int a1, int blackPixels) {
-    if (a1 > codingLine[codingPos]) {
+    if (a1 >= codingLine[codingPos]) {
       if (a1 > columns) {
         err = true;
         a1 = columns;
@@ -374,6 +387,13 @@ class CcittFaxDecoder {
     }
   }
 
+  /// Reads the next 2D mode code. A code that doesn't match any table entry
+  /// isn't necessarily stream corruption — occasional line noise on the
+  /// original fax transmission is exactly what T.4/T.6 error handling is
+  /// meant to tolerate — so, matching the reference decoder, this treats an
+  /// unrecognized code the same as running out of data ([_ccittEof]) rather
+  /// than throwing: the caller ends that row early instead of aborting the
+  /// whole decode.
   int _getTwoDimCode() {
     final code = _lookBits(7);
     if (code == _ccittEof) return _ccittEof;
@@ -382,9 +402,13 @@ class CcittFaxDecoder {
       _eatBits(p[0]);
       return p[1];
     }
-    throw const TiffException('Bad CCITT 2D mode code');
+    return _ccittEof;
   }
 
+  /// See [_getTwoDimCode]'s doc comment on why an unmatched code isn't
+  /// treated as fatal — here, matching the reference decoder, recovery is a
+  /// 1-bit resync (eat a single bit and report a degenerate 1-pixel run)
+  /// rather than ending the row outright.
   int _getWhiteCode() {
     final code = _lookBits(12);
     if (code == _ccittEof) return 1;
@@ -393,9 +417,11 @@ class CcittFaxDecoder {
       _eatBits(p[0]);
       return p[1];
     }
-    throw TiffException('Bad CCITT white run code (bits: $code)');
+    _eatBits(1);
+    return 1;
   }
 
+  /// See [_getWhiteCode].
   int _getBlackCode() {
     final code = _lookBits(13);
     if (code == _ccittEof) return 1;
@@ -411,7 +437,8 @@ class CcittFaxDecoder {
       _eatBits(p[0]);
       return p[1];
     }
-    throw TiffException('Bad CCITT black run code (bits: $code)');
+    _eatBits(1);
+    return 1;
   }
 
   int _lookBits(int n) {

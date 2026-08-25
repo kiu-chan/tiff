@@ -15,7 +15,10 @@ Initial release.
   data from legacy encoders, auto-detected the same way libtiff does.
   JPEG-in-TIFF decoding correctly treats the JPEG codec's own YCbCr->RGB
   conversion as final, rather than re-applying the PhotometricInterpretation
-  tag's YCbCr transform on top of already-RGB samples.
+  tag's YCbCr transform on top of already-RGB samples. CCITT Group 4/2D
+  decoding correctly preserves zero-length runs (some encoders pair a
+  zero-length white run with a zero-length black run), which previously
+  desynced the reference-line tracking used by later rows.
 - Horizontal differencing predictor, read and write.
 - RGBA8 color conversion covering WhiteIsZero/BlackIsZero, RGB(+alpha),
   Palette/ColorMap, CMYK, and non-subsampled YCbCr.
