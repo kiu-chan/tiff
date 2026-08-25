@@ -26,7 +26,9 @@ Initial release.
   (`ImageAdjustments`).
 - File-backed decoding (`package:tiff/tiff_io.dart`) that streams
   strips/tiles from disk instead of loading a whole file into memory, plus
-  region-of-interest decoding that skips chunks outside a requested crop.
+  region-of-interest decoding (`decodeRegion`/`decodeRegionRgba8`) that skips
+  chunks outside a requested crop — the way to preview or tile through a
+  multi-gigabyte page without materializing the whole image in memory.
 - Multi-page reading and writing via IFD chains.
 - GeoTIFF, EXIF, and GPS metadata parsing.
 - Optional `package:image` bridge (`package:tiff/tiff_image_adapter.dart`)

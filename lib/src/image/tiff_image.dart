@@ -61,4 +61,10 @@ class TiffImage {
   /// PhotometricInterpretation (grayscale, RGB, palette, CMYK, or
   /// non-subsampled YCbCr).
   Uint8List decodeRgba8() => ColorTransform.toRgba8(metadata, decode());
+
+  /// [decodeRegion] followed by the same RGBA8 conversion [decodeRgba8]
+  /// applies — the way to get a low-memory RGBA preview of a crop from a
+  /// multi-gigabyte page without ever materializing the whole image.
+  Uint8List decodeRegionRgba8(TiffRegion region) =>
+      ColorTransform.toRgba8(metadata, decodeRegion(region));
 }

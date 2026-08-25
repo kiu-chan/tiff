@@ -106,6 +106,40 @@ void main() {
       },
     );
 
+    test('decodeRegionRgba8 matches a manual crop of decodeRgba8', () {
+      final pixelData = Uint8List.fromList([
+        1, 2, 3, 4, //
+        5, 6, 7, 8, //
+        9, 10, 11, 12, //
+        13, 14, 15, 16, //
+      ]);
+      final builder = TiffFixtureBuilder()
+        ..addTag(TiffTagId.imageWidth, TiffTagType.tShort, [4])
+        ..addTag(TiffTagId.imageLength, TiffTagType.tShort, [4])
+        ..addTag(TiffTagId.bitsPerSample, TiffTagType.tShort, [8])
+        ..addTag(TiffTagId.compression, TiffTagType.tShort, [1])
+        ..addTag(TiffTagId.photometricInterpretation, TiffTagType.tShort, [1])
+        ..addStripOffsetsTag(TiffTagId.stripOffsets, TiffTagType.tLong, [4, 4, 4, 4])
+        ..addTag(TiffTagId.samplesPerPixel, TiffTagType.tShort, [1])
+        ..addTag(TiffTagId.rowsPerStrip, TiffTagType.tLong, [1])
+        ..addTag(TiffTagId.stripByteCounts, TiffTagType.tLong, [4, 4, 4, 4])
+        ..setPixelData(pixelData);
+
+      final image = TiffDecoder.decode(builder.build()).images.single;
+      final fullRgba = image.decodeRgba8();
+      final regionRgba = image.decodeRegionRgba8(const TiffRegion(x: 1, y: 1, width: 2, height: 2));
+
+      Uint8List cropPixel(int x, int y) {
+        final o = (y * 4 + x) * 4;
+        return fullRgba.sublist(o, o + 4);
+      }
+
+      expect(regionRgba.sublist(0, 4), cropPixel(1, 1));
+      expect(regionRgba.sublist(4, 8), cropPixel(2, 1));
+      expect(regionRgba.sublist(8, 12), cropPixel(1, 2));
+      expect(regionRgba.sublist(12, 16), cropPixel(2, 2));
+    });
+
     test('rejects an out-of-bounds region with a clear error', () {
       final builder = TiffFixtureBuilder()
         ..addTag(TiffTagId.imageWidth, TiffTagType.tShort, [2])
