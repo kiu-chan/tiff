@@ -19,6 +19,8 @@ Initial release.
 - Horizontal differencing predictor, read and write.
 - RGBA8 color conversion covering WhiteIsZero/BlackIsZero, RGB(+alpha),
   Palette/ColorMap, CMYK, and non-subsampled YCbCr.
+- Brightness/contrast/gamma adjustment for decoded RGBA8 pixel data
+  (`ImageAdjustments`).
 - File-backed decoding (`package:tiff/tiff_io.dart`) that streams
   strips/tiles from disk instead of loading a whole file into memory, plus
   region-of-interest decoding that skips chunks outside a requested crop.

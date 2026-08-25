@@ -29,6 +29,15 @@ class PixelUnpacker {
           case 2:
             out[i] = data.getUint16(off, endian);
             break;
+          case 3:
+            out[i] = endian == Endian.little
+                ? data.getUint8(off) |
+                      (data.getUint8(off + 1) << 8) |
+                      (data.getUint8(off + 2) << 16)
+                : (data.getUint8(off) << 16) |
+                      (data.getUint8(off + 1) << 8) |
+                      data.getUint8(off + 2);
+            break;
           case 4:
             out[i] = data.getUint32(off, endian);
             break;

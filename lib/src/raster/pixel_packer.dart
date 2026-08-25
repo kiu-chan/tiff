@@ -27,6 +27,17 @@ class PixelPacker {
           case 2:
             data.setUint16(off, samples[i], endian);
             break;
+          case 3:
+            if (endian == Endian.little) {
+              data.setUint8(off, samples[i] & 0xFF);
+              data.setUint8(off + 1, (samples[i] >> 8) & 0xFF);
+              data.setUint8(off + 2, (samples[i] >> 16) & 0xFF);
+            } else {
+              data.setUint8(off, (samples[i] >> 16) & 0xFF);
+              data.setUint8(off + 1, (samples[i] >> 8) & 0xFF);
+              data.setUint8(off + 2, samples[i] & 0xFF);
+            }
+            break;
           case 4:
             data.setUint32(off, samples[i], endian);
             break;

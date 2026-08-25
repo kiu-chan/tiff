@@ -190,6 +190,41 @@ void main() {
       expect(doc.byteOrder, TiffByteOrder.big);
       expect(doc.images.single.decode().samples, samples);
     });
+
+    test('24-bit samples round-trip (little-endian)', () {
+      // A byte-aligned but non-8/16/32 depth: regression test for a bug
+      // where PixelPacker/PixelUnpacker's fast path accepted byteWidth==3
+      // but its switch had no case for it, silently producing all-zero data.
+      final samples = List.generate(16, (i) => 1 + i * 65793); // spread bits
+      final spec = TiffImageSpec(
+        width: 4,
+        height: 4,
+        samplesPerPixel: 1,
+        bitsPerSample: 24,
+        photometric: TiffPhotometric.blackIsZero,
+        samples: samples,
+      );
+
+      final bytes = TiffEncoder.encode([spec], endian: Endian.little);
+      final image = TiffDecoder.decode(bytes).images.single;
+      expect(image.decode().samples, samples);
+    });
+
+    test('24-bit samples round-trip (big-endian)', () {
+      final samples = List.generate(16, (i) => 1 + i * 65793);
+      final spec = TiffImageSpec(
+        width: 4,
+        height: 4,
+        samplesPerPixel: 1,
+        bitsPerSample: 24,
+        photometric: TiffPhotometric.blackIsZero,
+        samples: samples,
+      );
+
+      final bytes = TiffEncoder.encode([spec], endian: Endian.big);
+      final image = TiffDecoder.decode(bytes).images.single;
+      expect(image.decode().samples, samples);
+    });
   });
 
   group('TiffImageSpec validation', () {

@@ -19,6 +19,8 @@ kilobytes to multi-gigabyte BigTIFF rasters.
 - Horizontal differencing predictor, read and write
 - RGBA8 color conversion: WhiteIsZero/BlackIsZero, RGB(+alpha),
   Palette/ColorMap, CMYK, and non-subsampled YCbCr
+- Brightness/contrast/gamma adjustment on decoded RGBA8 pixel data
+  (`ImageAdjustments`)
 - File-backed decoding that streams strips/tiles from disk instead of
   loading a whole file into memory (`package:tiff/tiff_io.dart`), plus
   region-of-interest decoding that skips chunks outside a requested crop
@@ -120,6 +122,18 @@ if (geo != null) {
   print(geo.geoKeys[GeoTiffKeyId.gtModelType]);
 }
 print(metadata.exifTags?[ExifTagId.dateTimeOriginal]?.asString());
+```
+
+Adjusting brightness/contrast/gamma on decoded pixels:
+
+```dart
+final rgba = page.decodeRgba8();
+final adjusted = ImageAdjustments.apply(
+  rgba,
+  brightness: 15, // additive, sample units; negative darkens
+  contrast: 1.2, // 1.0 = no change, around mid-gray
+  gamma: 1.1, // 1.0 = no change; >1 brightens midtones
+);
 ```
 
 ### Optional: `package:image` bridge
