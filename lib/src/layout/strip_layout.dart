@@ -1,70 +1,81 @@
 import 'dart:math' as math;
-import 'dart:typed_data';
 
 import '../core/byte_reader.dart';
 import '../image/image_metadata.dart';
-import '../image/planar_configuration.dart';
-import '../raster/pixel_unpacker.dart';
 import '../raster/raster_buffer.dart';
+import '../region/tiff_region.dart';
 import '../tiff_exception.dart';
+import 'chunk_decoder.dart';
+import 'layout_common.dart';
 
-/// Decodes strip-organized, uncompressed pixel data (Compression == 1) into
-/// a [TiffRasterBuffer].
+/// Decodes strip-organized pixel data into a [TiffRasterBuffer].
 class StripLayout {
   const StripLayout._();
 
-  static TiffRasterBuffer decodeUncompressed({
+  static TiffRasterBuffer decode({
     required TiffByteReader reader,
     required TiffImageMetadata metadata,
-  }) {
-    if (metadata.planarConfiguration == TiffPlanarConfiguration.planar) {
-      throw const TiffException(
-          'Planar configuration is not supported yet (Phase 1 supports chunky/interleaved data only)');
-    }
+  }) =>
+      decodeRegion(reader: reader, metadata: metadata, region: TiffRegion.fullImage(metadata));
 
-    final bitsSet = metadata.bitsPerSample.toSet();
-    if (bitsSet.length > 1) {
-      throw const TiffException('Differing BitsPerSample per channel is not supported yet');
-    }
-    final bitsPerSample = metadata.bitsPerSample.isNotEmpty ? metadata.bitsPerSample.first : 1;
+  /// Decodes only [region], skipping every strip that doesn't overlap it —
+  /// entirely, including the disk/network read behind [reader.readBytes] —
+  /// so a small crop of a huge image only touches the strips it actually
+  /// needs.
+  static TiffRasterBuffer decodeRegion({
+    required TiffByteReader reader,
+    required TiffImageMetadata metadata,
+    required TiffRegion region,
+  }) {
+    region.validateWithin(metadata);
+    final bitsPerSample = LayoutCommon.uniformBitsPerSample(metadata);
 
     final samplesPerPixel = metadata.samplesPerPixel;
     final width = metadata.width;
     final height = metadata.height;
     final rowsPerStrip = metadata.rowsPerStrip > 0 ? metadata.rowsPerStrip : height;
-    final bytesPerRow = (width * samplesPerPixel * bitsPerSample + 7) ~/ 8;
 
     if (metadata.stripOffsets.length != metadata.stripByteCounts.length) {
       throw const TiffException('StripOffsets and StripByteCounts count mismatch');
     }
 
-    final samples = List<int>.filled(width * height * samplesPerPixel, 0);
+    final regionRowLength = region.width * samplesPerPixel;
+    final samples = List<int>.filled(region.width * region.height * samplesPerPixel, 0);
 
     var rowIndex = 0;
     for (var stripIndex = 0; stripIndex < metadata.stripOffsets.length; stripIndex++) {
-      final stripBytes = reader.readBytes(
+      final stripFirstRow = rowIndex;
+      final rowsInThisStrip = math.min(rowsPerStrip, height - rowIndex);
+      final stripLastRow = stripFirstRow + rowsInThisStrip;
+      rowIndex = stripLastRow;
+
+      if (stripLastRow <= region.y || stripFirstRow >= region.y + region.height) {
+        continue;
+      }
+
+      final compressedBytes = reader.readBytes(
         metadata.stripOffsets[stripIndex],
         metadata.stripByteCounts[stripIndex],
       );
-      final rowsInThisStrip = math.min(rowsPerStrip, height - rowIndex);
+      final stripSamples = ChunkDecoder.decodeChunk(
+        compressedBytes: compressedBytes,
+        compression: metadata.compression,
+        predictor: metadata.predictor,
+        rows: rowsInThisStrip,
+        columns: width,
+        samplesPerPixel: samplesPerPixel,
+        bitsPerSample: bitsPerSample,
+        endian: reader.endian,
+      );
 
       for (var r = 0; r < rowsInThisStrip; r++) {
-        final rowByteOffset = r * bytesPerRow;
-        if (rowByteOffset + bytesPerRow > stripBytes.length) {
-          throw TiffException('Strip $stripIndex is smaller than expected at row $r');
+        final absRow = stripFirstRow + r;
+        if (absRow < region.y || absRow >= region.y + region.height) continue;
+        final srcStart = (r * width + region.x) * samplesPerPixel;
+        final destStart = (absRow - region.y) * regionRowLength;
+        for (var i = 0; i < regionRowLength; i++) {
+          samples[destStart + i] = stripSamples[srcStart + i];
         }
-        final rowBytes = Uint8List.sublistView(stripBytes, rowByteOffset, rowByteOffset + bytesPerRow);
-        final rowSamples = PixelUnpacker.unpackRow(
-          rowBytes: rowBytes,
-          bitsPerSample: bitsPerSample,
-          sampleCount: width * samplesPerPixel,
-          endian: reader.endian,
-        );
-        final destStart = rowIndex * width * samplesPerPixel;
-        for (var i = 0; i < rowSamples.length; i++) {
-          samples[destStart + i] = rowSamples[i];
-        }
-        rowIndex++;
       }
     }
 
@@ -73,8 +84,8 @@ class StripLayout {
     }
 
     return TiffRasterBuffer(
-      width: width,
-      height: height,
+      width: region.width,
+      height: region.height,
       samplesPerPixel: samplesPerPixel,
       bitsPerSample: bitsPerSample,
       samples: samples,

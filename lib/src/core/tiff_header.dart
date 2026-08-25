@@ -1,5 +1,4 @@
-import 'dart:typed_data';
-
+import '../io/byte_source.dart';
 import '../tiff_exception.dart';
 import 'byte_order.dart';
 import 'byte_reader.dart';
@@ -20,25 +19,26 @@ class TiffHeader {
   static const int _classicMagic = 42;
   static const int _bigTiffMagic = 43;
 
-  /// Parses the header from the start of [bytes].
+  /// Parses the header from the start of [source].
   ///
   /// Recognizes Classic TIFF (32-bit offsets, magic 42) and BigTIFF
   /// (64-bit offsets, magic 43). Throws [TiffException] for anything else.
-  static TiffHeader parse(Uint8List bytes) {
-    if (bytes.length < 8) {
+  static TiffHeader parse(TiffByteSource source) {
+    if (source.length < 8) {
       throw const TiffException('File is too small to contain a valid TIFF header');
     }
 
+    final marker = source.readBytes(0, 2);
     final TiffByteOrder byteOrder;
-    if (bytes[0] == 0x49 && bytes[1] == 0x49) {
+    if (marker[0] == 0x49 && marker[1] == 0x49) {
       byteOrder = TiffByteOrder.little;
-    } else if (bytes[0] == 0x4D && bytes[1] == 0x4D) {
+    } else if (marker[0] == 0x4D && marker[1] == 0x4D) {
       byteOrder = TiffByteOrder.big;
     } else {
       throw const TiffException('Not a TIFF file: invalid byte order marker');
     }
 
-    final reader = TiffByteReader(bytes, byteOrder.endian);
+    final reader = TiffByteReader(source, byteOrder.endian);
     final magic = reader.readUint16(2);
 
     if (magic == _classicMagic) {
@@ -47,7 +47,7 @@ class TiffHeader {
     }
 
     if (magic == _bigTiffMagic) {
-      if (bytes.length < 16) {
+      if (source.length < 16) {
         throw const TiffException('File is too small to contain a valid BigTIFF header');
       }
       final offsetByteSize = reader.readUint16(4);

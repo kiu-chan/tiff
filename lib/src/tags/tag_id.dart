@@ -21,6 +21,7 @@ class TiffTagId {
   static const int yResolution = 283;
   static const int planarConfiguration = 284;
   static const int resolutionUnit = 296;
+  static const int predictor = 317;
   static const int colorMap = 320;
   static const int tileWidth = 322;
   static const int tileLength = 323;
@@ -28,4 +29,5 @@ class TiffTagId {
   static const int tileByteCounts = 325;
   static const int extraSamples = 338;
   static const int sampleFormat = 339;
+  static const int yCbCrSubSampling = 530;
 }

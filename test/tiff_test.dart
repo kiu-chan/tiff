@@ -107,7 +107,7 @@ void main() {
         ..addTag(TiffTagId.imageWidth, TiffTagType.tShort, [1])
         ..addTag(TiffTagId.imageLength, TiffTagType.tShort, [1])
         ..addTag(TiffTagId.bitsPerSample, TiffTagType.tShort, [8])
-        ..addTag(TiffTagId.compression, TiffTagType.tShort, [5]) // LZW, not yet supported
+        ..addTag(TiffTagId.compression, TiffTagType.tShort, [6]) // old-style JPEG, not supported
         ..addTag(TiffTagId.photometricInterpretation, TiffTagType.tShort, [1])
         ..addStripOffsetsTag(TiffTagId.stripOffsets, TiffTagType.tLong, [1])
         ..addTag(TiffTagId.samplesPerPixel, TiffTagType.tShort, [1])

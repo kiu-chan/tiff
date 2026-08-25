@@ -80,7 +80,7 @@ class TiffIfdReader {
       dataBytes = reader.readBytes(valueOffset, totalBytes);
     }
 
-    final valueReader = TiffByteReader(dataBytes, reader.endian);
+    final valueReader = TiffByteReader.fromBytes(dataBytes, reader.endian);
 
     if (type == TiffTagType.tAscii) {
       final nullIndex = dataBytes.indexOf(0);

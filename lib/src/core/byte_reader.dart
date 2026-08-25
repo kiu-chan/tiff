@@ -1,38 +1,45 @@
 import 'dart:typed_data';
 
-/// Thin, allocation-light wrapper around a [Uint8List] that reads TIFF
-/// primitive types at arbitrary offsets, honoring the file's byte order.
+import '../io/byte_source.dart';
+import '../io/memory_byte_source.dart';
+
+/// Reads TIFF primitive types at arbitrary offsets from a [TiffByteSource],
+/// honoring the file's byte order.
 ///
 /// Reads are offset-based (not cursor-based) because TIFF/BigTIFF constantly
 /// jumps around the file (IFD chains, tag value offsets, strip/tile data).
 class TiffByteReader {
-  final Uint8List bytes;
+  final TiffByteSource source;
   final Endian endian;
-  final ByteData _data;
 
-  TiffByteReader(this.bytes, this.endian) : _data = ByteData.sublistView(bytes);
+  const TiffByteReader(this.source, this.endian);
 
-  int get length => bytes.length;
+  factory TiffByteReader.fromBytes(Uint8List bytes, Endian endian) =>
+      TiffByteReader(MemoryByteSource(bytes), endian);
 
-  int readUint8(int offset) => _data.getUint8(offset);
+  int get length => source.length;
 
-  int readInt8(int offset) => _data.getInt8(offset);
+  int readUint8(int offset) => _view(offset, 1).getUint8(0);
 
-  int readUint16(int offset) => _data.getUint16(offset, endian);
+  int readInt8(int offset) => _view(offset, 1).getInt8(0);
 
-  int readInt16(int offset) => _data.getInt16(offset, endian);
+  int readUint16(int offset) => _view(offset, 2).getUint16(0, endian);
 
-  int readUint32(int offset) => _data.getUint32(offset, endian);
+  int readInt16(int offset) => _view(offset, 2).getInt16(0, endian);
 
-  int readInt32(int offset) => _data.getInt32(offset, endian);
+  int readUint32(int offset) => _view(offset, 4).getUint32(0, endian);
 
-  int readUint64(int offset) => _data.getUint64(offset, endian);
+  int readInt32(int offset) => _view(offset, 4).getInt32(0, endian);
 
-  int readInt64(int offset) => _data.getInt64(offset, endian);
+  int readUint64(int offset) => _view(offset, 8).getUint64(0, endian);
 
-  double readFloat32(int offset) => _data.getFloat32(offset, endian);
+  int readInt64(int offset) => _view(offset, 8).getInt64(0, endian);
 
-  double readFloat64(int offset) => _data.getFloat64(offset, endian);
+  double readFloat32(int offset) => _view(offset, 4).getFloat32(0, endian);
 
-  Uint8List readBytes(int offset, int count) => Uint8List.sublistView(bytes, offset, offset + count);
+  double readFloat64(int offset) => _view(offset, 8).getFloat64(0, endian);
+
+  Uint8List readBytes(int offset, int count) => source.readBytes(offset, count);
+
+  ByteData _view(int offset, int count) => ByteData.sublistView(source.readBytes(offset, count));
 }

@@ -19,12 +19,16 @@ class TiffFixtureBuilder {
     _tags.add(_Tag(id, type, values));
   }
 
-  /// Adds a StripOffsets tag whose values are computed automatically from
-  /// [stripByteCounts] (one entry per strip) once the pixel data location is
-  /// known, so callers don't need to hand-compute absolute file offsets.
-  void addStripOffsetsTag(int id, TiffTagType type, List<int> stripByteCounts) {
-    _tags.add(_Tag(id, type, List.filled(stripByteCounts.length, 0), stripByteCounts: stripByteCounts));
+  /// Adds a StripOffsets/TileOffsets tag whose values are computed
+  /// automatically from [byteCounts] (one entry per strip/tile) once the
+  /// pixel data location is known, so callers don't need to hand-compute
+  /// absolute file offsets.
+  void addStripOffsetsTag(int id, TiffTagType type, List<int> byteCounts) {
+    _tags.add(_Tag(id, type, List.filled(byteCounts.length, 0), stripByteCounts: byteCounts));
   }
+
+  void addTileOffsetsTag(int id, TiffTagType type, List<int> byteCounts) =>
+      addStripOffsetsTag(id, type, byteCounts);
 
   void setPixelData(Uint8List data) => _pixelData = data;
 
