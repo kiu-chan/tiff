@@ -15,4 +15,6 @@ export 'src/region/tiff_region.dart' show TiffRegion;
 export 'src/tags/tag_id.dart' show TiffTagId;
 export 'src/tiff_decoder.dart' show TiffDecoder;
 export 'src/tiff_document.dart' show TiffDocument;
+export 'src/tiff_encoder.dart' show TiffEncoder;
 export 'src/tiff_exception.dart' show TiffException;
+export 'src/write/tiff_image_spec.dart' show TiffImageSpec;

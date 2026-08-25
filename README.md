@@ -4,25 +4,25 @@ Dart library for reading and writing TIFF and BigTIFF image files — tags, IFDs
 
 ## Status
 
-Phase 1 + 2 implemented: reading Classic TIFF and BigTIFF, strip and tile
-data, common compression schemes, and RGBA color conversion.
+Phases 1-4 implemented: reading and writing Classic TIFF and BigTIFF, strip
+and tile data, common compression schemes, and RGBA color conversion.
 
 ## Features
 
 - [x] Classic TIFF (32-bit offsets)
-- [x] BigTIFF (64-bit offsets)
+- [x] BigTIFF (64-bit offsets), incl. auto-promotion from Classic on write
 - [x] IFD / tag parsing (all baseline tag types, incl. BigTIFF LONG8/SLONG8/IFD8)
-- [x] Strip decoding
-- [x] Tile decoding (incl. cropped edge tiles)
-- [x] Compression: None, PackBits, LZW, Deflate/ZIP
-- [x] Horizontal differencing predictor
+- [x] Strip decoding and encoding
+- [x] Tile decoding and encoding (incl. cropped/padded edge tiles)
+- [x] Compression: None, PackBits, LZW, Deflate/ZIP (read and write)
+- [x] Horizontal differencing predictor (read and write)
 - [x] RGBA8 color conversion: WhiteIsZero/BlackIsZero, RGB(+alpha), Palette,
       CMYK, non-subsampled YCbCr
 - [x] File-backed decoding without loading the whole file into memory
       (`package:tiff/tiff_io.dart`)
 - [x] Region-of-interest decoding (skip strips/tiles outside a requested crop)
+- [x] Multi-page writing
 - [ ] JPEG-in-TIFF, CCITT Group 3/4 compression
-- [ ] Encoding (write TIFF/BigTIFF)
 - [ ] GeoTIFF / EXIF metadata
 
 ## Getting started
@@ -69,6 +69,29 @@ void main() {
   } finally {
     document.close(); // releases the file handle
   }
+}
+```
+
+Writing a TIFF:
+
+```dart
+import 'dart:io';
+import 'package:tiff/tiff.dart';
+
+void main() {
+  final spec = TiffImageSpec(
+    width: 256,
+    height: 256,
+    samplesPerPixel: 3,
+    bitsPerSample: 8,
+    photometric: TiffPhotometric.rgb,
+    samples: myRgbSamples, // length == width * height * samplesPerPixel
+    compression: 5, // LZW; see TiffTagId-style compression codes in the docs
+    predictor: 2, // horizontal differencing (pairs well with LZW/Deflate)
+  );
+
+  final bytes = TiffEncoder.encode([spec]); // pass multiple specs for a multi-page file
+  File('output.tif').writeAsBytesSync(bytes);
 }
 ```
 

@@ -25,4 +25,20 @@ class CompressionCodecRegistry {
         throw TiffException('Compression code $compressionCode is not supported yet');
     }
   }
+
+  static Uint8List encode(int compressionCode, Uint8List input) {
+    switch (compressionCode) {
+      case 1:
+        return input;
+      case 5:
+        return LzwCodec.encode(input);
+      case 32773:
+        return PackBitsCodec.encode(input);
+      case 8:
+      case 32946:
+        return DeflateCodec.encode(input);
+      default:
+        throw TiffException('Compression code $compressionCode is not supported yet for encoding');
+    }
+  }
 }

@@ -12,4 +12,9 @@ class DeflateCodec {
     final decoded = const ZLibDecoder().decodeBytes(input);
     return Uint8List.fromList(decoded);
   }
+
+  static Uint8List encode(Uint8List input) {
+    final encoded = const ZLibEncoder().encode(input);
+    return Uint8List.fromList(encoded);
+  }
 }

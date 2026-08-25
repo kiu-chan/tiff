@@ -16,3 +16,8 @@
   decodes only the strips/tiles overlapping a requested rectangle,
   skipping the read entirely for the rest — the way to look at a crop of
   a multi-gigabyte BigTIFF page without decoding the whole thing.
+- Phase 4: `TiffEncoder.encode()` writes Classic TIFF or BigTIFF from one
+  or more `TiffImageSpec` pages — strip or tile layout, PackBits/LZW/Deflate
+  compression, the horizontal differencing predictor, and Palette/ColorMap
+  images. BigTIFF is auto-selected once the encoded pixel data approaches
+  the 4 GiB Classic offset limit (or force it explicitly either way).

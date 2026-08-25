@@ -28,4 +28,38 @@ class PackBitsCodec {
     }
     return output.toBytes();
   }
+
+  static Uint8List encode(Uint8List input) {
+    final output = BytesBuilder();
+    final n = input.length;
+    var i = 0;
+    while (i < n) {
+      var runLength = 1;
+      while (i + runLength < n && input[i + runLength] == input[i] && runLength < 128) {
+        runLength++;
+      }
+      if (runLength >= 2) {
+        output.addByte((-(runLength - 1)) & 0xFF);
+        output.addByte(input[i]);
+        i += runLength;
+        continue;
+      }
+
+      final literalStart = i;
+      var literalLength = 1;
+      i++;
+      while (i < n && literalLength < 128) {
+        var nextRunLength = 1;
+        while (i + nextRunLength < n && input[i + nextRunLength] == input[i] && nextRunLength < 128) {
+          nextRunLength++;
+        }
+        if (nextRunLength >= 2) break;
+        literalLength++;
+        i++;
+      }
+      output.addByte(literalLength - 1);
+      output.add(input.sublist(literalStart, literalStart + literalLength));
+    }
+    return output.toBytes();
+  }
 }
