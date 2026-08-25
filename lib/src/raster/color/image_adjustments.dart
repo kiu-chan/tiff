@@ -44,7 +44,11 @@ class ImageAdjustments {
       return rgba;
     }
 
-    final lut = _buildLut(brightness: brightness, contrast: contrast, gamma: gamma);
+    final lut = _buildLut(
+      brightness: brightness,
+      contrast: contrast,
+      gamma: gamma,
+    );
     final out = Uint8List(rgba.length);
     for (var i = 0; i < rgba.length; i += 4) {
       out[i] = lut[rgba[i]];
@@ -63,7 +67,12 @@ class ImageAdjustments {
     final invGamma = 1 / gamma;
     return Uint8List.fromList([
       for (var v = 0; v < 256; v++)
-        _adjustSample(v, brightness: brightness, contrast: contrast, invGamma: invGamma),
+        _adjustSample(
+          v,
+          brightness: brightness,
+          contrast: contrast,
+          invGamma: invGamma,
+        ),
     ]);
   }
 

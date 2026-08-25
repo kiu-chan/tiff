@@ -119,7 +119,12 @@ void main() {
         ..addTag(TiffTagId.bitsPerSample, TiffTagType.tShort, [8])
         ..addTag(TiffTagId.compression, TiffTagType.tShort, [1])
         ..addTag(TiffTagId.photometricInterpretation, TiffTagType.tShort, [1])
-        ..addStripOffsetsTag(TiffTagId.stripOffsets, TiffTagType.tLong, [4, 4, 4, 4])
+        ..addStripOffsetsTag(TiffTagId.stripOffsets, TiffTagType.tLong, [
+          4,
+          4,
+          4,
+          4,
+        ])
         ..addTag(TiffTagId.samplesPerPixel, TiffTagType.tShort, [1])
         ..addTag(TiffTagId.rowsPerStrip, TiffTagType.tLong, [1])
         ..addTag(TiffTagId.stripByteCounts, TiffTagType.tLong, [4, 4, 4, 4])
@@ -127,7 +132,9 @@ void main() {
 
       final image = TiffDecoder.decode(builder.build()).images.single;
       final fullRgba = image.decodeRgba8();
-      final regionRgba = image.decodeRegionRgba8(const TiffRegion(x: 1, y: 1, width: 2, height: 2));
+      final regionRgba = image.decodeRegionRgba8(
+        const TiffRegion(x: 1, y: 1, width: 2, height: 2),
+      );
 
       Uint8List cropPixel(int x, int y) {
         final o = (y * 4 + x) * 4;

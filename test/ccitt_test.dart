@@ -170,37 +170,34 @@ void main() {
       },
     );
 
-    test(
-      'decodes a real Group 3 1D fax page with no EOL codes between rows '
-      '(another libtiff test fixture, multi-strip)',
-      () {
-        // This file is libtiff's own regression fixture for a specific old
-        // bug: some encoders write Group 3 1D data with no EOL sync code
-        // between rows at all. Cross-checked against ImageMagick (100% exact
-        // match, all 4,008,960 pixels) rather than macOS's `sips` — `sips`
-        // itself mis-renders this one specific file (fully inverted), and
-        // Python/Pillow's libtiff binding refuses to decode it outright;
-        // ImageMagick was the tie-breaker that agreed with this decoder.
-        final bytes = File(
-          'test/fixtures/testfax3_bug54_1dnoEOL.tif',
-        ).readAsBytesSync();
-        final page = TiffDecoder.decode(bytes).images.single;
-        expect(page.metadata.width, 1728);
-        expect(page.metadata.height, 2320);
-        expect(page.metadata.compression, 3);
-        final raster = page.decode();
+    test('decodes a real Group 3 1D fax page with no EOL codes between rows '
+        '(another libtiff test fixture, multi-strip)', () {
+      // This file is libtiff's own regression fixture for a specific old
+      // bug: some encoders write Group 3 1D data with no EOL sync code
+      // between rows at all. Cross-checked against ImageMagick (100% exact
+      // match, all 4,008,960 pixels) rather than macOS's `sips` — `sips`
+      // itself mis-renders this one specific file (fully inverted), and
+      // Python/Pillow's libtiff binding refuses to decode it outright;
+      // ImageMagick was the tie-breaker that agreed with this decoder.
+      final bytes = File(
+        'test/fixtures/testfax3_bug54_1dnoEOL.tif',
+      ).readAsBytesSync();
+      final page = TiffDecoder.decode(bytes).images.single;
+      expect(page.metadata.width, 1728);
+      expect(page.metadata.height, 2320);
+      expect(page.metadata.compression, 3);
+      final raster = page.decode();
 
-        bool isBlack(int x, int y) => raster.sampleAt(x, y, 0) == 1;
-        expect(isBlack(5, 0), isFalse);
-        expect(isBlack(5, 200), isFalse);
-        expect(isBlack(841, 110), isTrue);
-        expect(isBlack(845, 110), isFalse);
-        expect(isBlack(837, 111), isTrue);
-        expect(isBlack(849, 111), isFalse);
-        expect(isBlack(700, 143), isTrue);
-        expect(isBlack(1000, 150), isFalse);
-      },
-    );
+      bool isBlack(int x, int y) => raster.sampleAt(x, y, 0) == 1;
+      expect(isBlack(5, 0), isFalse);
+      expect(isBlack(5, 200), isFalse);
+      expect(isBlack(841, 110), isTrue);
+      expect(isBlack(845, 110), isFalse);
+      expect(isBlack(837, 111), isTrue);
+      expect(isBlack(849, 111), isFalse);
+      expect(isBlack(700, 143), isTrue);
+      expect(isBlack(1000, 150), isFalse);
+    });
   });
 
   group('CCITT Group 3 1D (Modified Huffman) decode', () {

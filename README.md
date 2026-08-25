@@ -167,6 +167,11 @@ whether `tiff_image_adapter.dart` is ever imported. "Optional" here means
 your own code never has to touch `package:image`'s API (or pay for importing
 it) unless you choose to.
 
+## Example app
+
+See [tiff_tester](https://github.com/kiu-chan/tiff_tester.git) for a full
+Flutter app example built on this package.
+
 ## License
 
 Apache License 2.0. See [LICENSE](LICENSE).

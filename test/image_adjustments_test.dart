@@ -26,7 +26,12 @@ void main() {
     });
 
     test('contrast expands values away from mid-gray (127.5)', () {
-      final rgba = Uint8List.fromList([227, 27, 127, 255]); // +100/-100/~mid from 127.5
+      final rgba = Uint8List.fromList([
+        227,
+        27,
+        127,
+        255,
+      ]); // +100/-100/~mid from 127.5
       final result = ImageAdjustments.apply(rgba, contrast: 2.0);
       // (227-127.5)*2+127.5=327.5->255 clamp; (27-127.5)*2+127.5=-72.5->0 clamp;
       // (127-127.5)*2+127.5=126.5->127 (rounds to 127).
@@ -62,21 +67,24 @@ void main() {
       expect(result, [0, 255, 0, 255]);
     });
 
-    test('adjustments compose across a whole buffer, alpha always preserved', () {
-      final rgba = Uint8List.fromList([
-        0, 128, 255, 10, //
-        50, 60, 70, 200,
-      ]);
-      final result = ImageAdjustments.apply(
-        rgba,
-        brightness: 10,
-        contrast: 1.2,
-        gamma: 1.1,
-      );
-      expect(result.length, rgba.length);
-      expect(result[3], 10);
-      expect(result[7], 200);
-    });
+    test(
+      'adjustments compose across a whole buffer, alpha always preserved',
+      () {
+        final rgba = Uint8List.fromList([
+          0, 128, 255, 10, //
+          50, 60, 70, 200,
+        ]);
+        final result = ImageAdjustments.apply(
+          rgba,
+          brightness: 10,
+          contrast: 1.2,
+          gamma: 1.1,
+        );
+        expect(result.length, rgba.length);
+        expect(result[3], 10);
+        expect(result[7], 200);
+      },
+    );
 
     test('rejects a buffer whose length is not a multiple of 4', () {
       expect(
@@ -87,17 +95,13 @@ void main() {
 
     test('rejects a non-positive gamma', () {
       expect(
-        () => ImageAdjustments.apply(
-          Uint8List.fromList([1, 2, 3, 4]),
-          gamma: 0,
-        ),
+        () =>
+            ImageAdjustments.apply(Uint8List.fromList([1, 2, 3, 4]), gamma: 0),
         throwsA(isA<TiffException>()),
       );
       expect(
-        () => ImageAdjustments.apply(
-          Uint8List.fromList([1, 2, 3, 4]),
-          gamma: -1,
-        ),
+        () =>
+            ImageAdjustments.apply(Uint8List.fromList([1, 2, 3, 4]), gamma: -1),
         throwsA(isA<TiffException>()),
       );
     });
