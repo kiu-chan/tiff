@@ -67,6 +67,14 @@ class TileLayout {
     for (var ty = tileMinY; ty <= tileMaxY; ty++) {
       for (var tx = tileMinX; tx <= tileMaxX; tx++) {
         final tileIndex = ty * tilesAcross + tx;
+
+        // A tile with a byte count of 0 is a "sparse" tile: some encoders
+        // (whole-slide-image scanners in particular) never write tiles that
+        // would be empty/background, and rely on the reader leaving that
+        // region at its default fill value instead. There's no data to
+        // decode here at all — skip straight to the next tile.
+        if (tileByteCounts[tileIndex] == 0) continue;
+
         final compressedBytes = reader.readBytes(
           tileOffsets[tileIndex],
           tileByteCounts[tileIndex],

@@ -35,6 +35,17 @@
   `ImageException: Duplicate JPG frame data found.` on a page where every
   chunk actually is independently self-contained, e.g. a real whole-slide-
   image scanner file).
+- Fixed: a strip/tile with a byte count of 0 (a "sparse" chunk — some
+  whole-slide-image scanners never store background tiles at all, and rely
+  on the reader leaving that area at its default fill value) is now skipped
+  outright instead of being treated as a JPEG chunk that failed the
+  self-contained check above. Previously a single sparse chunk anywhere in
+  a JPEG-compressed page made *every* chunk get funneled into the
+  whole-page stitched-JPEG fallback — including chunks that were perfectly
+  valid, independent JPEGs on their own — which then failed with
+  `ImageException: Duplicate JPG frame data found.` once more than one real
+  frame ended up concatenated together. This is the shape a real
+  Philips/Aperio-style whole-slide-image TIFF commonly takes.
 
 ## 0.1.0
 

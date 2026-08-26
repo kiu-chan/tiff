@@ -68,6 +68,13 @@ class StripLayout {
         continue;
       }
 
+      // A strip with a byte count of 0 is a "sparse" strip: some encoders
+      // (whole-slide-image scanners in particular) never write strips that
+      // would be empty/background, and rely on the reader leaving that
+      // region at its default fill value instead. There's no data to decode
+      // here at all — skip straight to the next strip.
+      if (metadata.stripByteCounts[stripIndex] == 0) continue;
+
       final compressedBytes = reader.readBytes(
         metadata.stripOffsets[stripIndex],
         metadata.stripByteCounts[stripIndex],

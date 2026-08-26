@@ -220,6 +220,87 @@ void main() {
     });
   });
 
+  group('sparse strips/tiles with a byte count of 0', () {
+    test('a sparse tile is skipped, not misread as a split JPEG scan needing stitching', () {
+      // Regression test: whole-slide-image scanners commonly write "sparse"
+      // tiled TIFFs, where background tiles are never stored at all — their
+      // TileByteCounts entry is 0 and there's no data to read. Before this
+      // fix, a 0-byte chunk failed the self-contained-JPEG check (no SOF, no
+      // EOI, nothing) the same way a genuine split-scan fragment would, so
+      // *every* tile in the page — including perfectly valid, independent
+      // ones — was wrongly reassembled into one JPEG stream, which fails
+      // with "Duplicate JPG frame data found." once more than one tile
+      // carries its own real SOF.
+      final tileA = gradient(8, 8);
+      final tileAJpeg = Uint8List.fromList(img.encodeJpg(tileA, quality: 90));
+      final tileC = gradient(8, 8, offset: 100);
+      final tileCJpeg = Uint8List.fromList(img.encodeJpg(tileC, quality: 90));
+      final pixelData = Uint8List.fromList([...tileAJpeg, ...tileCJpeg]);
+
+      final builder = TiffFixtureBuilder()
+        ..addTag(TiffTagId.imageWidth, TiffTagType.tShort, [24])
+        ..addTag(TiffTagId.imageLength, TiffTagType.tShort, [8])
+        ..addTag(TiffTagId.bitsPerSample, TiffTagType.tShort, [8])
+        ..addTag(TiffTagId.samplesPerPixel, TiffTagType.tShort, [3])
+        ..addTag(TiffTagId.compression, TiffTagType.tShort, [7])
+        ..addTag(TiffTagId.photometricInterpretation, TiffTagType.tShort, [2])
+        ..addTag(TiffTagId.tileWidth, TiffTagType.tShort, [8])
+        ..addTag(TiffTagId.tileLength, TiffTagType.tShort, [8])
+        ..addTileOffsetsTag(TiffTagId.tileOffsets, TiffTagType.tLong, [
+          tileAJpeg.length,
+          0,
+          tileCJpeg.length,
+        ])
+        ..addTag(TiffTagId.tileByteCounts, TiffTagType.tLong, [
+          tileAJpeg.length,
+          0,
+          tileCJpeg.length,
+        ])
+        ..setPixelData(pixelData);
+
+      final page = TiffDecoder.decode(builder.build()).images.single;
+      final decoded = page.decode();
+
+      final referenceA = img.decodeJpg(tileAJpeg)!.getBytes(order: img.ChannelOrder.rgb);
+      final referenceC = img.decodeJpg(tileCJpeg)!.getBytes(order: img.ChannelOrder.rgb);
+      final expected = Uint8List(24 * 8 * 3);
+      for (var y = 0; y < 8; y++) {
+        expected.setRange((y * 24) * 3, (y * 24 + 8) * 3, referenceA, y * 8 * 3);
+        // Middle tile (sparse, byte count 0) is left at its default fill (0).
+        expected.setRange((y * 24 + 16) * 3, (y * 24 + 24) * 3, referenceC, y * 8 * 3);
+      }
+      expect(decoded.samples, expected);
+    });
+
+    test('a sparse strip is skipped the same way', () {
+      final rowsPerStrip = 4;
+      final top = gradient(8, rowsPerStrip);
+      final topJpeg = Uint8List.fromList(img.encodeJpg(top, quality: 90));
+      final pixelData = Uint8List.fromList(topJpeg);
+
+      final builder = TiffFixtureBuilder()
+        ..addTag(TiffTagId.imageWidth, TiffTagType.tShort, [8])
+        ..addTag(TiffTagId.imageLength, TiffTagType.tShort, [8])
+        ..addTag(TiffTagId.bitsPerSample, TiffTagType.tShort, [8])
+        ..addTag(TiffTagId.samplesPerPixel, TiffTagType.tShort, [3])
+        ..addTag(TiffTagId.compression, TiffTagType.tShort, [7])
+        ..addTag(TiffTagId.photometricInterpretation, TiffTagType.tShort, [2])
+        ..addTag(TiffTagId.rowsPerStrip, TiffTagType.tLong, [rowsPerStrip])
+        ..addStripOffsetsTag(TiffTagId.stripOffsets, TiffTagType.tLong, [topJpeg.length, 0])
+        ..addTag(TiffTagId.stripByteCounts, TiffTagType.tLong, [topJpeg.length, 0])
+        ..setPixelData(pixelData);
+
+      final page = TiffDecoder.decode(builder.build()).images.single;
+      final decoded = page.decode();
+
+      final referenceTop = img.decodeJpg(topJpeg)!.getBytes(order: img.ChannelOrder.rgb);
+      final expected = Uint8List(8 * 8 * 3);
+      expected.setRange(0, 8 * rowsPerStrip * 3, referenceTop);
+      // Bottom strip (sparse, byte count 0) is left at its default fill (0).
+      expect(decoded.samples, expected);
+    });
+  });
+
   group('a JPEG scan split across tiles', () {
     test('decode() reassembles it and matches decoding the original JPEG whole', () {
       final source = gradient(16, 16);
