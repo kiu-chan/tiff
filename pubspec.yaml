@@ -9,6 +9,8 @@ topics:
   - bigtiff
   - image
   - codec
+funding:
+  - https://ko-fi.com/monlycute
 
 environment:
   sdk: ^3.12.2

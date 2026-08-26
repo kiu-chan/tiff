@@ -14,7 +14,10 @@ export 'src/metadata/exif_tag_id.dart' show ExifTagId, GpsTagId;
 export 'src/metadata/geotiff_keys.dart' show GeoTiffKeyId, GeoTiffModelType;
 export 'src/metadata/geotiff_metadata.dart'
     show GeoTiffMetadata, GeoTiffTiepoint;
+export 'src/optimize/tiff_display_optimizer.dart'
+    show TiffDisplayOptimizer, TiffOptimizationMode;
 export 'src/raster/color/image_adjustments.dart' show ImageAdjustments;
+export 'src/raster/color/image_resampler.dart' show ImageResampler;
 export 'src/raster/raster_buffer.dart' show TiffRasterBuffer;
 export 'src/region/tiff_initial_view.dart' show TiffInitialView;
 export 'src/region/tiff_region.dart' show TiffRegion;

@@ -4,6 +4,13 @@
   sized for a viewer's viewport and a per-device decode budget, so a
   viewer's first frame decodes a screen-sized crop instead of the whole
   page.
+- `TiffDisplayOptimizer.optimize` rewrites a page as tiled (and optionally
+  pyramided) RGB, as a deliberate one-off "prepare this file" step run
+  before a viewer opens it — not during interactive display — so a source
+  TIFF that's strip-organized, single-resolution, or both no longer forces
+  a viewer to decode more than it needs to just to pan or zoom out.
+  `ImageResampler.downsampleRgba8` (box filtering) is the pyramid-level
+  resampler behind it, and is usable standalone too.
 
 ## 0.1.0
 

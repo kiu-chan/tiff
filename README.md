@@ -27,6 +27,10 @@ kilobytes to multi-gigabyte BigTIFF rasters.
 - `TiffInitialView.forViewport` picks a centered region and zoom level sized
   for a viewer's screen and decode budget, so a first frame never requires
   decoding a whole multi-gigapixel page
+- `TiffDisplayOptimizer.optimize` rewrites a page as tiled (and optionally
+  pyramided) RGB ahead of time, so a strip-organized and/or
+  single-resolution source no longer forces a viewer to decode more than it
+  needs to
 - Multi-page reading and writing via IFD chains
 - GeoTIFF, EXIF, and GPS metadata parsing
 - An optional `package:image` bridge (`package:tiff/tiff_image_adapter.dart`)
@@ -108,6 +112,26 @@ final initialView = TiffInitialView.forViewport(
 final preview = page.decodeRegionRgba8(initialView.region);
 // Display `preview` scaled by initialView.zoom, then let the user pan/zoom
 // further, decoding new regions on demand.
+```
+
+Preparing a file *ahead of time* so a later viewer never has to decode more
+than it needs to — this is a deliberate one-off rewrite, not something to
+run during interactive display, and it decodes the whole page into memory
+to do it (see the `TiffDisplayOptimizer` dartdoc for the memory caveat on a
+very large page):
+
+```dart
+final page = document.images.first;
+final optimized = TiffDisplayOptimizer.optimize(
+  page,
+  mode: TiffOptimizationMode.tiledPyramid, // or .tiledOnly for just re-tiling
+  tileSize: 512,
+  minPyramidDimension: 512,
+);
+File('optimized.tif').writeAsBytesSync(optimized);
+// optimized.tif is tiled RGB with progressively halved rungs appended as
+// extra pages — open it the normal way and a viewer can decode by tile at
+// whichever rung matches the current zoom, instead of the whole page.
 ```
 
 Writing a TIFF:
@@ -193,6 +217,13 @@ it) unless you choose to.
 
 See [tiff_tester](https://github.com/kiu-chan/tiff_tester.git) for a full
 Flutter app example built on this package.
+
+## Support
+
+If this package is useful to you, consider supporting its development on
+Ko-fi:
+
+[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/monlycute)
 
 ## License
 
