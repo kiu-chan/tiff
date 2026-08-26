@@ -1,6 +1,6 @@
 name: tiff
 description: "Dart library for reading and writing TIFF and BigTIFF image files — tags, IFDs, strips/tiles, compression, GeoTIFF/EXIF metadata, and an optional package:image bridge."
-version: 0.1.0
+version: 0.2.0
 homepage: https://github.com/kiu-chan/tiff
 repository: https://github.com/kiu-chan/tiff
 issue_tracker: https://github.com/kiu-chan/tiff/issues

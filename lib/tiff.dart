@@ -16,6 +16,7 @@ export 'src/metadata/geotiff_metadata.dart'
     show GeoTiffMetadata, GeoTiffTiepoint;
 export 'src/raster/color/image_adjustments.dart' show ImageAdjustments;
 export 'src/raster/raster_buffer.dart' show TiffRasterBuffer;
+export 'src/region/tiff_initial_view.dart' show TiffInitialView;
 export 'src/region/tiff_region.dart' show TiffRegion;
 export 'src/tags/tag_id.dart' show TiffTagId;
 export 'src/tiff_decoder.dart' show TiffDecoder;

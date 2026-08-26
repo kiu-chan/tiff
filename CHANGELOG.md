@@ -1,3 +1,10 @@
+## 0.2.0
+
+- `TiffInitialView.forViewport` computes a centered region and display zoom
+  sized for a viewer's viewport and a per-device decode budget, so a
+  viewer's first frame decodes a screen-sized crop instead of the whole
+  page.
+
 ## 0.1.0
 
 Initial release.

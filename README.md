@@ -24,6 +24,9 @@ kilobytes to multi-gigabyte BigTIFF rasters.
 - File-backed decoding that streams strips/tiles from disk instead of
   loading a whole file into memory (`package:tiff/tiff_io.dart`), plus
   region-of-interest decoding that skips chunks outside a requested crop
+- `TiffInitialView.forViewport` picks a centered region and zoom level sized
+  for a viewer's screen and decode budget, so a first frame never requires
+  decoding a whole multi-gigapixel page
 - Multi-page reading and writing via IFD chains
 - GeoTIFF, EXIF, and GPS metadata parsing
 - An optional `package:image` bridge (`package:tiff/tiff_image_adapter.dart`)
@@ -45,7 +48,7 @@ kilobytes to multi-gigabyte BigTIFF rasters.
 
 ```yaml
 dependencies:
-  tiff: ^0.1.0
+  tiff: ^0.2.0
 ```
 
 ## Usage
@@ -86,6 +89,25 @@ void main() {
     document.close(); // releases the file handle
   }
 }
+```
+
+For a viewer's first frame, decode a region sized for the screen instead of
+the whole page — `TiffInitialView.forViewport` picks a region centered on
+the page plus the zoom to display it at, capped by a decode budget you tune
+per device:
+
+```dart
+final page = document.images.first;
+final initialView = TiffInitialView.forViewport(
+  page.metadata,
+  viewportWidth: 1080,
+  viewportHeight: 2280,
+  devicePixelRatio: 3.0, // from the platform, e.g. MediaQuery in Flutter
+  maxDecodedPixels: 4000000, // lower this on memory-constrained devices
+);
+final preview = page.decodeRegionRgba8(initialView.region);
+// Display `preview` scaled by initialView.zoom, then let the user pan/zoom
+// further, decoding new regions on demand.
 ```
 
 Writing a TIFF:
