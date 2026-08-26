@@ -72,6 +72,23 @@ class TileLayout {
           tileByteCounts[tileIndex],
         );
 
+        final isJpeg = metadata.compression == 6 || metadata.compression == 7;
+        // See StripLayout's identical check for why this is checked upfront
+        // rather than reactively: most JPEG-in-TIFF encoders write each
+        // tile as a self-contained JPEG, but some instead split one
+        // continuous JPEG scan across chunk boundaries — a self-contained
+        // tile that fails to decode for some *other* reason should surface
+        // that error directly instead of being wrongly merged with
+        // unrelated tiles.
+        if (isJpeg && !ChunkDecoder.isSelfContainedJpeg(compressedBytes)) {
+          return _decodeViaStitchedJpeg(
+            reader: reader,
+            metadata: metadata,
+            region: region,
+            bitsPerSample: bitsPerSample,
+          );
+        }
+
         final tileSamples = ChunkDecoder.decodeChunk(
           compressedBytes: compressedBytes,
           compression: metadata.compression,
@@ -115,6 +132,65 @@ class TileLayout {
             samples[destStart + i] = tileSamples[srcStart + i];
           }
         }
+      }
+    }
+
+    return TiffRasterBuffer(
+      width: region.width,
+      height: region.height,
+      samplesPerPixel: samplesPerPixel,
+      bitsPerSample: bitsPerSample,
+      samples: samples,
+    );
+  }
+
+  /// Fallback for a JPEG-compressed page where at least one tile failed to
+  /// decode on its own — see [ChunkDecoder.decodeStitchedJpegChunks] and
+  /// [StripLayout]'s identical fallback. A genuine tiled JPEG scan can't be
+  /// stitched by concatenation (each tile is its own independent 2D block,
+  /// not a fragment of one raster-order scan the way strips can be) — this
+  /// only helps for the same pathological case strips have: an encoder that
+  /// wrote one whole-page JPEG scan, arbitrarily chopped into
+  /// tile-sized-looking byte ranges. So this reassembles every tile (in
+  /// storage order) and decodes it against the *page's* full dimensions,
+  /// not a single tile's, then crops out [region] — there's no way to
+  /// decode only part of one continuous JPEG scan, so a region request
+  /// against a page shaped like this costs as much as [decode] would.
+  static TiffRasterBuffer _decodeViaStitchedJpeg({
+    required TiffByteReader reader,
+    required TiffImageMetadata metadata,
+    required TiffRegion region,
+    required int bitsPerSample,
+  }) {
+    final samplesPerPixel = metadata.samplesPerPixel;
+    final width = metadata.width;
+    final height = metadata.height;
+    final tileOffsets = metadata.tileOffsets!;
+    final tileByteCounts = metadata.tileByteCounts!;
+
+    final chunks = [
+      for (var i = 0; i < tileOffsets.length; i++)
+        reader.readBytes(tileOffsets[i], tileByteCounts[i]),
+    ];
+    final fullSamples = ChunkDecoder.decodeStitchedJpegChunks(
+      chunks: chunks,
+      rows: height,
+      columns: width,
+      samplesPerPixel: samplesPerPixel,
+      jpegTables: metadata.jpegTables,
+    );
+
+    final regionRowLength = region.width * samplesPerPixel;
+    final samples = List<int>.filled(
+      region.width * region.height * samplesPerPixel,
+      0,
+    );
+    for (var r = 0; r < region.height; r++) {
+      final absRow = region.y + r;
+      final srcStart = (absRow * width + region.x) * samplesPerPixel;
+      final destStart = r * regionRowLength;
+      for (var i = 0; i < regionRowLength; i++) {
+        samples[destStart + i] = fullSamples[srcStart + i];
       }
     }
 

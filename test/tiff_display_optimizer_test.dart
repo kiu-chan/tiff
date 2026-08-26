@@ -123,6 +123,42 @@ void main() {
       expect(page.decodeRgba8().length, 8 * 8 * 4);
     });
 
+    test('onProgress reports concrete step counts per rung, ending at completedSteps == totalSteps', () {
+      final source = _sourcePage(width: 32, height: 32);
+      final progress = <TiffOptimizeProgress>[];
+
+      TiffDisplayOptimizer.optimize(
+        source,
+        mode: TiffOptimizationMode.tiledPyramid,
+        tileSize: 16,
+        minPyramidDimension: 8,
+        onProgress: progress.add,
+      );
+
+      // 3 rungs (32 -> 16 -> 8) plus the final post-encode step == 4 total.
+      expect(progress, hasLength(4));
+      expect(progress.every((p) => p.totalSteps == 4), isTrue);
+      expect(progress.map((p) => p.completedSteps), [1, 2, 3, 4]);
+      expect(progress.map((p) => p.fraction), [0.25, 0.5, 0.75, 1.0]);
+      final last = progress.last;
+      expect(last.completedSteps, last.totalSteps);
+      expect(last.fraction, 1.0);
+    });
+
+    test('onProgress reports just 2 steps for tiledOnly (no pyramid rungs)', () {
+      final source = _sourcePage(width: 32, height: 32);
+      final progress = <TiffOptimizeProgress>[];
+
+      TiffDisplayOptimizer.optimize(
+        source,
+        mode: TiffOptimizationMode.tiledOnly,
+        tileSize: 16,
+        onProgress: progress.add,
+      );
+
+      expect(progress.map((p) => (p.completedSteps, p.totalSteps, p.fraction)), [(1, 2, 0.5), (2, 2, 1.0)]);
+    });
+
     test('rejects a non-positive tileSize', () {
       final source = _sourcePage();
       expect(

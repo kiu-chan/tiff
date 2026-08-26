@@ -41,6 +41,14 @@ class TiffFixtureBuilder {
     );
   }
 
+  /// Adds a tag whose value is raw bytes, taken verbatim — for BYTE/UNDEFINED
+  /// (or any other single-byte-per-value) tag types where the fixture
+  /// doesn't need [type]'s usual numeric encoding, e.g. an UNDEFINED
+  /// JPEGTables (347) stream.
+  void addBytesTag(int id, TiffTagType type, Uint8List bytes) {
+    _tags.add(_Tag(id, type, List.filled(bytes.length, 0), rawBytes: bytes));
+  }
+
   /// Adds a StripOffsets/TileOffsets tag whose values are computed
   /// automatically from [byteCounts] (one entry per strip/tile) once the
   /// pixel data location is known, so callers don't need to hand-compute
@@ -181,6 +189,9 @@ class TiffFixtureBuilder {
   }
 
   Uint8List _encodeTag(_Tag tag) {
+    if (tag.rawBytes != null) {
+      return tag.rawBytes!;
+    }
     if (tag.asciiValue != null) {
       final text = tag.asciiValue!;
       final bytes = Uint8List(text.length + 1);
@@ -225,6 +236,7 @@ class _Tag {
   final List<int>? stripByteCounts;
   final List<double>? doubleValues;
   final String? asciiValue;
+  final Uint8List? rawBytes;
 
   _Tag(
     this.id,
@@ -233,5 +245,6 @@ class _Tag {
     this.stripByteCounts,
     this.doubleValues,
     this.asciiValue,
+    this.rawBytes,
   });
 }

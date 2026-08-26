@@ -15,7 +15,7 @@ export 'src/metadata/geotiff_keys.dart' show GeoTiffKeyId, GeoTiffModelType;
 export 'src/metadata/geotiff_metadata.dart'
     show GeoTiffMetadata, GeoTiffTiepoint;
 export 'src/optimize/tiff_display_optimizer.dart'
-    show TiffDisplayOptimizer, TiffOptimizationMode;
+    show TiffDisplayOptimizer, TiffOptimizationMode, TiffOptimizeProgress;
 export 'src/raster/color/image_adjustments.dart' show ImageAdjustments;
 export 'src/raster/color/image_resampler.dart' show ImageResampler;
 export 'src/raster/raster_buffer.dart' show TiffRasterBuffer;

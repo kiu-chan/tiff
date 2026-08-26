@@ -27,6 +27,13 @@ enum TiffOptimizationMode {
   tiledPyramid,
 }
 
+/// Progress reported by [TiffDisplayOptimizer.optimize] as it works:
+/// [completedSteps] out of [totalSteps] "steps" done so far — one step per
+/// pyramid rung built, plus one for the final encode — and the same
+/// expressed as [fraction] (`completedSteps / totalSteps`) for a caller
+/// that just wants a single number to drive a progress bar.
+typedef TiffOptimizeProgress = ({int completedSteps, int totalSteps, double fraction});
+
 /// Rewrites a page into a structure suited to smooth interactive display
 /// later — tiled (and optionally pyramided), rather than the strip layout
 /// and single resolution a source TIFF may only have.
@@ -61,12 +68,21 @@ class TiffDisplayOptimizer {
   ///   for a smaller display copy — pick a lossy path yourself first (e.g.
   ///   via `package:tiff/tiff_image_adapter.dart`) if that trade-off is
   ///   worth it for your use case.
+  /// - [onProgress]: called with a [TiffOptimizeProgress] as work completes
+  ///   — once after the initial decode (and its base-resolution rung), once
+  ///   more per additional pyramid rung, then a final call once the whole
+  ///   result is encoded (where `completedSteps == totalSteps` and
+  ///   `fraction == 1`). There's no per-byte granularity within a single
+  ///   rung's decode/resample/encode step; for a page with few or no
+  ///   pyramid rungs (e.g. [TiffOptimizationMode.tiledOnly]), expect just a
+  ///   couple of calls rather than a smoothly increasing stream.
   static Uint8List optimize(
     TiffImage page, {
     TiffOptimizationMode mode = TiffOptimizationMode.tiledPyramid,
     int tileSize = 512,
     int minPyramidDimension = 512,
     int compression = 8,
+    void Function(TiffOptimizeProgress)? onProgress,
   }) {
     if (tileSize <= 0) {
       throw ArgumentError('tileSize must be > 0');
@@ -77,9 +93,19 @@ class TiffDisplayOptimizer {
 
     var width = page.metadata.width;
     var height = page.metadata.height;
-    var rgba = page.decodeRgba8();
+    final totalLevels = mode == TiffOptimizationMode.tiledPyramid ? _countLevels(width, height, minPyramidDimension) : 1;
+    // +1 reserves a step for the final TiffEncoder.encode call below, so
+    // onProgress never reports completion before the result actually exists.
+    final totalSteps = totalLevels + 1;
+    var completedSteps = 0;
+    void reportStep() {
+      completedSteps++;
+      onProgress?.call((completedSteps: completedSteps, totalSteps: totalSteps, fraction: completedSteps / totalSteps));
+    }
 
+    var rgba = page.decodeRgba8();
     final specs = <TiffImageSpec>[_tiledRgbSpec(rgba, width, height, tileSize, compression)];
+    reportStep();
 
     if (mode == TiffOptimizationMode.tiledPyramid) {
       while (math.max(width, height) > minPyramidDimension) {
@@ -95,10 +121,27 @@ class TiffDisplayOptimizer {
         width = nextWidth;
         height = nextHeight;
         specs.add(_tiledRgbSpec(rgba, width, height, tileSize, compression));
+        reportStep();
       }
     }
 
-    return TiffEncoder.encode(specs);
+    final bytes = TiffEncoder.encode(specs);
+    reportStep();
+    return bytes;
+  }
+
+  /// How many rungs [optimize] will build for [TiffOptimizationMode.tiledPyramid]
+  /// — the base resolution plus one per halving down to [minPyramidDimension]
+  /// — computed up front so [optimize] can report proportional progress
+  /// without guessing at how much work remains.
+  static int _countLevels(int width, int height, int minPyramidDimension) {
+    var levels = 1;
+    while (math.max(width, height) > minPyramidDimension) {
+      width = math.max(1, width ~/ 2);
+      height = math.max(1, height ~/ 2);
+      levels++;
+    }
+    return levels;
   }
 
   static TiffImageSpec _tiledRgbSpec(Uint8List rgba, int width, int height, int tileSize, int compression) {

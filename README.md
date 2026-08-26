@@ -44,7 +44,12 @@ kilobytes to multi-gigabyte BigTIFF rasters.
 - **JPEG-in-TIFF (Compression 6/7) decoding requires the optional adapter**
   (`package:tiff/tiff_image_adapter.dart`) — TIFF's baseline spec has no
   bundled JPEG codec, so this package borrows `package:image`'s. Writing
-  JPEG-compressed TIFF is not supported.
+  JPEG-compressed TIFF is not supported. Normally each strip/tile is its own
+  self-contained JPEG (TIFF Technical Note 2) and only the strips/tiles a
+  region actually touches get decoded; a page whose encoder instead split
+  one continuous JPEG scan across chunk boundaries still decodes correctly,
+  but any `decodeRegion` call against it costs as much as decoding the
+  whole page — there's no way to decode part of one continuous scan.
 - Only chunky (interleaved) `PlanarConfiguration`, and a single
   `BitsPerSample` value uniform across channels, are supported.
 
