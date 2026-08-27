@@ -12,6 +12,8 @@ import 'src/io/file_byte_source.dart';
 import 'tiff.dart';
 
 export 'src/io/file_byte_source.dart' show FileByteSource;
+export 'src/io/system_memory_info.dart' show SystemMemoryInfo;
+export 'src/io/tiff_auto_decode_budget.dart' show TiffAutoDecodeBudget;
 export 'src/io/tiff_parallel_decoder.dart' show TiffBand, TiffParallelDecoder;
 
 /// Opens [file] and decodes it lazily: only the header, IFDs, and whichever
