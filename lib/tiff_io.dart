@@ -12,6 +12,7 @@ import 'src/io/file_byte_source.dart';
 import 'tiff.dart';
 
 export 'src/io/file_byte_source.dart' show FileByteSource;
+export 'src/io/tiff_parallel_decoder.dart' show TiffBand, TiffParallelDecoder;
 
 /// Opens [file] and decodes it lazily: only the header, IFDs, and whichever
 /// strips/tiles are later decoded (via [TiffImage.decode] /

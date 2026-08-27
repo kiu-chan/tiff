@@ -4,6 +4,7 @@ library;
 export 'src/core/byte_order.dart' show TiffByteOrder;
 export 'src/core/tag_type.dart' show TiffTagType;
 export 'src/core/tag_value.dart' show TiffTagValue, TiffRational;
+export 'src/decode/tiff_chunk_plan.dart' show TiffChunkPlan;
 export 'src/image/image_metadata.dart' show TiffImageMetadata;
 export 'src/image/photometric.dart' show TiffPhotometric;
 export 'src/image/planar_configuration.dart' show TiffPlanarConfiguration;

@@ -1,5 +1,25 @@
 ## 0.2.0
 
+- `TiffChunkPlan.forBudget` computes how to decode a page in horizontal
+  chunks that are both bounded by a caller-supplied byte budget and aligned
+  to a whole number of tile/strip rows — decoding one row at a time (the
+  natural choice for a tight memory budget) means `TiffImage.decodeRegionRgba8`
+  redecodes the same underlying tile/strip once per row that overlaps it
+  (500x-plus for a real whole-slide-image file's 512px tiles), since it has
+  no cross-call cache; `forBudget` avoids that by only shrinking the chunk
+  below one tile/strip if the budget truly forces it.
+  `TiffChunkPlan.recommendedWorkerCount` derives how many such chunks can
+  run concurrently within an aggregate memory budget and a CPU-count cap.
+  Both are pure — no I/O, no process/OS memory reading — the budget itself
+  is always an explicit parameter the caller computes however it likes.
+- `TiffParallelDecoder.decodeBanded` (`package:tiff/tiff_io.dart`) decodes a
+  page in horizontal bands across a pool of isolates, using `TiffChunkPlan`
+  internally — each worker opens its own file handle (a decoded page can't
+  cross an isolate boundary) and delivers bands back to the caller's own
+  isolate as they finish, so the caller can write them out, feed a pyramid
+  builder, or anything else per band without that work needing to be
+  isolate-safe itself. Worker count, per-chunk budget, and band height are
+  all caller-supplied.
 - `TiffInitialView.forViewport` computes a centered region and display zoom
   sized for a viewer's viewport and a per-device decode budget, so a
   viewer's first frame decodes a screen-sized crop instead of the whole

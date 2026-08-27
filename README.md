@@ -31,6 +31,11 @@ kilobytes to multi-gigabyte BigTIFF rasters.
   pyramided) RGB ahead of time, so a strip-organized and/or
   single-resolution source no longer forces a viewer to decode more than it
   needs to
+- `TiffChunkPlan` plans memory-bounded, tile-aligned decode chunks for a
+  page too large to decode whole, and `TiffParallelDecoder.decodeBanded`
+  (`package:tiff/tiff_io.dart`) uses it to decode a page in bands across a
+  pool of isolates — every budget/worker-count knob is a caller-supplied
+  parameter, not something read from the OS
 - Multi-page reading and writing via IFD chains
 - GeoTIFF, EXIF, and GPS metadata parsing
 - An optional `package:image` bridge (`package:tiff/tiff_image_adapter.dart`)
@@ -137,6 +142,29 @@ File('optimized.tif').writeAsBytesSync(optimized);
 // optimized.tif is tiled RGB with progressively halved rungs appended as
 // extra pages — open it the normal way and a viewer can decode by tile at
 // whichever rung matches the current zoom, instead of the whole page.
+```
+
+Decoding a huge page in bands, bounded by a memory budget you choose and
+spread across a pool of isolates — the way to build something like a
+progressive viewer's own cache without decoding the whole page into memory
+or paying for redundant tile/strip redecoding at a tight budget:
+
+```dart
+import 'package:tiff/tiff.dart';
+import 'package:tiff/tiff_io.dart'; // needed for TiffParallelDecoder
+
+await TiffParallelDecoder.decodeBanded(
+  filePath: 'huge.tif',
+  pageIndex: 0,
+  bandHeight: 256, // height of each delivered band
+  maxBytesPerChunk: 200 * 1024 * 1024, // your own memory budget, however computed
+  workerCount: 4, // your own choice — e.g. Platform.numberOfProcessors - 1
+  onBand: (band) {
+    // Called back on your isolate — write it out, feed a pyramid builder,
+    // whatever you need. Bands from different workers can interleave.
+    print('band at y=${band.y}, ${band.height} rows, ${band.rgba.length} bytes');
+  },
+);
 ```
 
 Writing a TIFF:
