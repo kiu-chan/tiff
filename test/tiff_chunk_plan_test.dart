@@ -66,14 +66,15 @@ void main() {
 
       expect(plan.chunkHeight, 512);
       expect(plan.chunks, [(0, 512), (512, 512), (1024, 512), (1536, 512)]);
-      // samplesPerPixel(3)*8+4 = 28 bytes/pixel; 1000 wide * 512 tall * 28.
-      expect(plan.bytesPerChunk, 1000 * 512 * 28);
+      // 8-bit samples cost 1 byte each once unpacked (see allocateSampleBuffer),
+      // so samplesPerPixel(3)*1+4 = 7 bytes/pixel; 1000 wide * 512 tall * 7.
+      expect(plan.bytesPerChunk, 1000 * 512 * 7);
     });
 
     test('a tight budget shrinks chunks below tile height rather than exceeding it', () {
       final metadata = _tiledMetadata(width: 10000, height: 2048, tileWidth: 512, tileLength: 512);
-      // One row at this width already costs 10000 * (3*8+4) = 280000 bytes —
-      // a budget below one full tile row (512 * 280000) forces shrinking.
+      // One row at this width already costs 10000 * (3*1+4) = 70000 bytes —
+      // a budget below one full tile row (512 * 70000) forces shrinking.
       final plan = TiffChunkPlan.forBudget(metadata, maxBytesPerChunk: 2 * 1024 * 1024);
 
       expect(plan.chunkHeight, lessThan(512));

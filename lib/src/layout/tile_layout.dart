@@ -54,9 +54,9 @@ class TileLayout {
     }
 
     final regionRowLength = region.width * samplesPerPixel;
-    final samples = List<int>.filled(
+    final samples = allocateSampleBuffer(
+      bitsPerSample,
       region.width * region.height * samplesPerPixel,
-      0,
     );
 
     final tileMinX = region.x ~/ tileWidth;
@@ -189,9 +189,9 @@ class TileLayout {
     );
 
     final regionRowLength = region.width * samplesPerPixel;
-    final samples = List<int>.filled(
+    final samples = allocateSampleBuffer(
+      bitsPerSample,
       region.width * region.height * samplesPerPixel,
-      0,
     );
     for (var r = 0; r < region.height; r++) {
       final absRow = region.y + r;

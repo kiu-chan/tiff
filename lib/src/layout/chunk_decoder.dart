@@ -4,6 +4,7 @@ import '../compression/codec_registry.dart';
 import '../compression/jpeg_hook.dart';
 import '../compression/predictor.dart';
 import '../raster/pixel_unpacker.dart';
+import '../raster/raster_buffer.dart';
 import '../tiff_exception.dart';
 
 /// Decodes one compressed chunk (a strip or a tile) into unpacked samples:
@@ -60,7 +61,7 @@ class ChunkDecoder {
       );
     }
 
-    final samples = List<int>.filled(columns * rows * samplesPerPixel, 0);
+    final samples = allocateSampleBuffer(bitsPerSample, columns * rows * samplesPerPixel);
     for (var r = 0; r < rows; r++) {
       final rowStart = r * bytesPerRow;
       final rowBytes = Uint8List.sublistView(

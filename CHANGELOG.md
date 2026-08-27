@@ -1,5 +1,24 @@
 ## 0.3.0
 
+- Decoded, unpacked samples (`TiffRasterBuffer.samples`, and the equivalent
+  intermediate buffer in `ChunkDecoder.decodeChunk`/`PixelUnpacker.unpackRow`)
+  are now backed by `Uint8List`/`Uint16List`/`Uint32List` (picked by
+  `bitsPerSample` via the new `allocateSampleBuffer`) instead of a generic
+  `List<int>`, which costs a full 8-byte machine word per element in Dart
+  regardless of how few bits the value actually needs. For the common case —
+  8-bit samples, e.g. any RGB whole-slide-image scanner file — this is a
+  4x memory reduction per decoded chunk (7 bytes/pixel instead of 28 for
+  3-channel RGB, once the final RGBA8 conversion buffer is counted too).
+  `TiffChunkPlan`'s own per-pixel cost estimate is updated to match, so a
+  memory budget computed from it (directly, or via the `TiffAutoDecodeBudget`
+  below) now reflects what a decode actually allocates — previously the
+  inflated estimate could force chunks well below a page's native tile/strip
+  height purely because of how the intermediate buffer happened to be
+  represented, not how much data it actually held, which is exactly what
+  forces redundant redecoding (see 0.2.0's note on `TiffChunkPlan.forBudget`)
+  and collapses `TiffChunkPlan.recommendedWorkerCount` to a single worker.
+  `samples`'s type stays `List<int>` (the public field/`sampleAt` API is
+  unchanged) — only what backs it changed.
 - `TiffAutoDecodeBudget.recommend` (`package:tiff/tiff_io.dart`) picks a
   `(maxBytesPerChunk, workerCount)` pair for `TiffParallelDecoder.decodeBanded`
   sized to both a page's metadata and the machine actually running it, so a
@@ -22,6 +41,19 @@
   next chunk is decoded. Skipping either margin let a generous reading, taken
   on an already-loaded machine, size a decode large enough to push the whole
   system into memory pressure.
+  The resulting aggregate budget is divided across up to `cpuCount` chunks
+  *before* `TiffChunkPlan.forBudget` sizes them, rather than handed to
+  `forBudget` whole — otherwise, on a budget too small to fit more than one
+  full tile/strip-aligned chunk at a time (a wide whole-slide-image page
+  easily), `recommendedWorkerCount` always came back 1 regardless of how
+  many cores were free, since chunk size (not worker count) was what used
+  up the budget. Dividing first only shrinks chunks below the native
+  tile/strip height (trading some redundant redecoding of the same
+  tile/strip for spreading that work across otherwise-idle cores
+  concurrently, rather than paying for it serially on one core) when the
+  budget genuinely can't fit `cpuCount` full-sized chunks; it has no effect
+  once it can, since `forBudget` already caps chunk height at the native
+  tile/strip height on its own.
 
 ## 0.2.0
 

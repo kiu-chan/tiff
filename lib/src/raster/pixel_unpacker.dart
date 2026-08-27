@@ -1,5 +1,7 @@
 import 'dart:typed_data';
 
+import 'raster_buffer.dart';
+
 /// Unpacks a row of raw, bit-packed sample data into one integer per sample.
 ///
 /// Byte-aligned depths (8/16/32-bit) use a fast typed-data path. Anything
@@ -19,7 +21,7 @@ class PixelUnpacker {
     if (bitsPerSample % 8 == 0 && bitsPerSample <= 32) {
       final byteWidth = bitsPerSample ~/ 8;
       final data = ByteData.sublistView(rowBytes);
-      final out = List<int>.filled(sampleCount, 0);
+      final out = allocateSampleBuffer(bitsPerSample, sampleCount);
       for (var i = 0; i < sampleCount; i++) {
         final off = i * byteWidth;
         switch (byteWidth) {

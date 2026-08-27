@@ -56,10 +56,14 @@ void main() {
       // A fraction of 0 means "use none of whatever's available", so the
       // result should bottom out at minAggregateBytes regardless of this
       // machine's actual memory.
+      // reservedCores forced absurdly high so cpuCount bottoms out at 1 —
+      // isolating this assertion from the separate per-core division
+      // covered below.
       final budget = TiffAutoDecodeBudget.recommend(
         metadata,
         systemMemoryFraction: 0,
         minAggregateBytes: 32 * 1024 * 1024,
+        reservedCores: 1 << 20,
       );
       expect(budget.maxBytesPerChunk, 32 * 1024 * 1024);
       expect(budget.workerCount, greaterThanOrEqualTo(1));
@@ -73,6 +77,24 @@ void main() {
       final budget = TiffAutoDecodeBudget.recommend(metadata);
       expect(budget.workerCount, greaterThanOrEqualTo(1));
       expect(budget.maxBytesPerChunk, greaterThan(0));
+    });
+
+    test('uses every idle core for a huge page even when the budget is too small for one full-tile-row chunk per core', () {
+      // Same whole-slide-image shape as above (one native tile-row chunk
+      // costs ~1.75GB), but with a budget that can't afford even a handful
+      // of those — this is exactly the case that used to collapse to a
+      // single worker (and idle every other core) regardless of how many
+      // cores were free, because the whole budget went to sizing one chunk
+      // instead of being split across chunks first.
+      final metadata = _tiledMetadata(width: 131072, height: 100352, tileWidth: 512, tileLength: 512);
+      final budget = TiffAutoDecodeBudget.recommend(
+        metadata,
+        systemMemoryFraction: 0,
+        fallbackAggregateBytes: 512 * 1024 * 1024,
+        reservedCores: 0,
+      );
+      final cpuCount = Platform.numberOfProcessors;
+      expect(budget.workerCount, cpuCount > 1 ? greaterThan(1) : 1);
     });
 
     test('scales worker count up for a small page given a generous budget', () {

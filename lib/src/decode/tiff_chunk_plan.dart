@@ -41,11 +41,30 @@ class TiffChunkPlan {
   const TiffChunkPlan._({required this.chunkHeight, required this.bytesPerChunk, required this.chunks});
 
   /// Raw per-pixel cost of one `decodeRegionRgba8` call: the intermediate
-  /// [TiffRasterBuffer.samples] the decode pipeline produces first (a
-  /// `List<int>`, one 8-byte machine word per sample regardless of the
-  /// source's actual bit depth) plus the final RGBA8 conversion (4
+  /// [TiffRasterBuffer.samples] the decode pipeline produces first (built by
+  /// `allocateSampleBuffer` as the narrowest typed-data list [bitsPerSample]
+  /// allows — see its doc comment) plus the final RGBA8 conversion (4
   /// bytes/pixel), which is briefly alive alongside it.
-  static int _bytesPerPixel(TiffImageMetadata m) => m.samplesPerPixel * 8 + 4;
+  static int _bytesPerPixel(TiffImageMetadata m) => m.samplesPerPixel * _bytesPerSample(m) + 4;
+
+  /// Bytes one raw sample actually costs once unpacked into memory — the
+  /// same bucketing `allocateSampleBuffer` uses (1 byte up to 8 bits, 2 up
+  /// to 16, 4 above that). Uses the *widest* channel in [TiffImageMetadata
+  /// .bitsPerSample] rather than [LayoutCommon.uniformBitsPerSample] — this
+  /// is a planning estimate, not a decode, so it deliberately never throws
+  /// on a page shape a later decode might reject (differing per-channel
+  /// depths, planar configuration); taking the max only ever overestimates
+  /// memory use in that case, never underestimates it.
+  static int _bytesPerSample(TiffImageMetadata m) {
+    if (m.bitsPerSample.isEmpty) return 1;
+    var maxBits = 0;
+    for (final bits in m.bitsPerSample) {
+      if (bits > maxBits) maxBits = bits;
+    }
+    if (maxBits <= 8) return 1;
+    if (maxBits <= 16) return 2;
+    return 4;
+  }
 
   /// Plans chunks for [metadata] so that one chunk's raw decode costs no
   /// more than [maxBytesPerChunk] — a budget the caller computes however it
