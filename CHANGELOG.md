@@ -1,3 +1,28 @@
+## 0.3.0
+
+- `TiffAutoDecodeBudget.recommend` (`package:tiff/tiff_io.dart`) picks a
+  `(maxBytesPerChunk, workerCount)` pair for `TiffParallelDecoder.decodeBanded`
+  sized to both a page's metadata and the machine actually running it, so a
+  caller no longer has to hardcode a number that's either too small for a big,
+  idle multi-core machine or too large for a small/mobile one —
+  `TiffChunkPlan`/`TiffChunkPlan.recommendedWorkerCount` need a caller to
+  already know both by design (see 0.2.0's note on why neither reads OS/CPU
+  state itself). Backed by the new `SystemMemoryInfo.probe()` (a best-effort
+  system memory reading via `sysctl`/`vm_stat` on macOS, `/proc/meminfo` on
+  Linux, or `wmic` on Windows — `null` on mobile, or any probe failure, since
+  none of those expose system-wide memory to an app) and
+  `Platform.numberOfProcessors`.
+  That memory reading is a one-time snapshot, not a promise it stays free for
+  the whole decode — a real machine keeps allocating elsewhere the entire
+  time a large decode runs — so `recommend` deliberately spends less than the
+  snapshot reports available: a reserve (`reserveFraction`/`reserveBytes`,
+  whichever is larger) is set aside for the rest of the machine up front, and
+  what's left is further divided by `doubleBufferSafetyFactor` to cover a
+  worker's previous chunk not necessarily being garbage-collected before its
+  next chunk is decoded. Skipping either margin let a generous reading, taken
+  on an already-loaded machine, size a decode large enough to push the whole
+  system into memory pressure.
+
 ## 0.2.0
 
 - `TiffChunkPlan.forBudget` computes how to decode a page in horizontal
