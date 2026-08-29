@@ -25,6 +25,23 @@ enum TiffOptimizationMode {
   /// zoomed-out view never has to downsample the full-resolution page on
   /// the fly.
   tiledPyramid,
+
+  /// Builds the same progressively half-sized, tiled rungs as
+  /// [tiledPyramid], but *without* re-encoding the base resolution itself
+  /// — the result holds only the smaller rungs, meant to sit as a sidecar
+  /// next to a source that already serves the base resolution well enough
+  /// on its own (e.g. it's already tiled), rather than as a full
+  /// standalone replacement for it. This is what makes the output cheap
+  /// to treat as a disposable cache: typically a small fraction of the
+  /// source's own size, since the (by far largest) base-resolution copy
+  /// [tiledPyramid] would otherwise duplicate is never written.
+  /// [optimize] still decodes the source's full resolution into memory to
+  /// derive these rungs from — there's no way to downsample without it —
+  /// this only changes what gets *encoded*.
+  /// Throws [ArgumentError] if the page's longest side is already at or
+  /// below `minPyramidDimension`, since there would be no smaller rung to
+  /// build.
+  pyramidLevelsOnly,
 }
 
 /// Progress reported by [TiffDisplayOptimizer.optimize] as it works:
@@ -58,10 +75,11 @@ class TiffDisplayOptimizer {
   /// - [tileSize]: tile width/height in pixels for every rung. A tile
   ///   larger than a rung's own dimensions is fine — [TiffEncoder] pads
   ///   edge tiles on write.
-  /// - [minPyramidDimension]: with [TiffOptimizationMode.tiledPyramid],
-  ///   rungs keep halving until the longest side is at or below this; the
-  ///   smallest rung is always kept even if that overshoots it. Ignored
-  ///   with [TiffOptimizationMode.tiledOnly].
+  /// - [minPyramidDimension]: with [TiffOptimizationMode.tiledPyramid] or
+  ///   [TiffOptimizationMode.pyramidLevelsOnly], rungs keep halving until
+  ///   the longest side is at or below this; the smallest rung is always
+  ///   kept even if that overshoots it. Ignored with
+  ///   [TiffOptimizationMode.tiledOnly].
   /// - [compression]: a [TiffImageSpec.compression] tag value; the default
   ///   (8, Deflate/ZIP) is lossless and needs no extra setup. This package
   ///   can't write JPEG (see the README's Limitations), the usual choice
@@ -93,7 +111,18 @@ class TiffDisplayOptimizer {
 
     var width = page.metadata.width;
     var height = page.metadata.height;
-    final totalLevels = mode == TiffOptimizationMode.tiledPyramid ? _countLevels(width, height, minPyramidDimension) : 1;
+    final includesBaseLevel = mode != TiffOptimizationMode.pyramidLevelsOnly;
+    final buildsSmallerRungs = mode != TiffOptimizationMode.tiledOnly;
+
+    if (mode == TiffOptimizationMode.pyramidLevelsOnly && math.max(width, height) <= minPyramidDimension) {
+      throw ArgumentError(
+        'page is already at or below minPyramidDimension ($minPyramidDimension); '
+        'there is no smaller pyramid level to build',
+      );
+    }
+
+    var totalLevels = buildsSmallerRungs ? _countLevels(width, height, minPyramidDimension) : 1;
+    if (!includesBaseLevel) totalLevels -= 1;
     // +1 reserves a step for the final TiffEncoder.encode call below, so
     // onProgress never reports completion before the result actually exists.
     final totalSteps = totalLevels + 1;
@@ -104,10 +133,13 @@ class TiffDisplayOptimizer {
     }
 
     var rgba = page.decodeRgba8();
-    final specs = <TiffImageSpec>[_tiledRgbSpec(rgba, width, height, tileSize, compression)];
-    reportStep();
+    final specs = <TiffImageSpec>[];
+    if (includesBaseLevel) {
+      specs.add(_tiledRgbSpec(rgba, width, height, tileSize, compression));
+      reportStep();
+    }
 
-    if (mode == TiffOptimizationMode.tiledPyramid) {
+    if (buildsSmallerRungs) {
       while (math.max(width, height) > minPyramidDimension) {
         final nextWidth = math.max(1, width ~/ 2);
         final nextHeight = math.max(1, height ~/ 2);

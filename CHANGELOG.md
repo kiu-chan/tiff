@@ -1,3 +1,16 @@
+## 0.4.0
+
+- `TiffDisplayOptimizer.optimize`'s new `TiffOptimizationMode.pyramidLevelsOnly`
+  builds the same progressively-halved, tiled rungs as `tiledPyramid`, but
+  without re-encoding the base resolution itself — the output holds only the
+  smaller rungs, a small fraction of what `tiledPyramid` writes, since the
+  (by far largest) base-resolution copy is never duplicated. Meant for a
+  caller that wants extra zoom-out levels as a disposable, sidecar cache
+  next to a source that already serves its own base resolution well (e.g.
+  it's already tiled), rather than a full standalone replacement file for
+  it. Throws `ArgumentError` if the page's longest side is already at or
+  below `minPyramidDimension`, since there'd be nothing smaller to build.
+
 ## 0.3.0
 
 - Decoded, unpacked samples (`TiffRasterBuffer.samples`, and the equivalent

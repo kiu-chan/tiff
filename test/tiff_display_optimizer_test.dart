@@ -159,6 +159,72 @@ void main() {
       expect(progress.map((p) => (p.completedSteps, p.totalSteps, p.fraction)), [(1, 2, 0.5), (2, 2, 1.0)]);
     });
 
+    test('pyramidLevelsOnly builds the same rungs as tiledPyramid minus the base level', () {
+      final source = _sourcePage(width: 32, height: 32);
+
+      final optimized = TiffDecoder.decode(
+        TiffDisplayOptimizer.optimize(
+          source,
+          mode: TiffOptimizationMode.pyramidLevelsOnly,
+          tileSize: 16,
+          minPyramidDimension: 8,
+        ),
+      );
+
+      // Same rungs as the tiledPyramid test above (32 -> 16 -> 8), but the
+      // 32x32 base level itself is never encoded into the output.
+      final dims = optimized.images.map((i) => (i.metadata.width, i.metadata.height)).toList();
+      expect(dims, [(16, 16), (8, 8)]);
+      for (final image in optimized.images) {
+        expect(image.metadata.isTiled, isTrue);
+      }
+    });
+
+    test('pyramidLevelsOnly rungs match tiledPyramid rungs pixel-for-pixel', () {
+      final source = _sourcePage(width: 32, height: 32);
+
+      final pyramid = TiffDecoder.decode(
+        TiffDisplayOptimizer.optimize(source, mode: TiffOptimizationMode.tiledPyramid, tileSize: 16, minPyramidDimension: 8),
+      );
+      final levelsOnly = TiffDecoder.decode(
+        TiffDisplayOptimizer.optimize(source, mode: TiffOptimizationMode.pyramidLevelsOnly, tileSize: 16, minPyramidDimension: 8),
+      );
+
+      // pyramid.images[1:] are the same smaller rungs levelsOnly.images holds.
+      expect(levelsOnly.images.length, pyramid.images.length - 1);
+      for (var i = 0; i < levelsOnly.images.length; i++) {
+        expect(levelsOnly.images[i].decodeRgba8(), pyramid.images[i + 1].decodeRgba8());
+      }
+    });
+
+    test('onProgress reports rungs only (no base-level step) for pyramidLevelsOnly', () {
+      final source = _sourcePage(width: 32, height: 32);
+      final progress = <TiffOptimizeProgress>[];
+
+      TiffDisplayOptimizer.optimize(
+        source,
+        mode: TiffOptimizationMode.pyramidLevelsOnly,
+        tileSize: 16,
+        minPyramidDimension: 8,
+        onProgress: progress.add,
+      );
+
+      // 2 rungs (16, 8) plus the final post-encode step == 3 total.
+      expect(progress.map((p) => (p.completedSteps, p.totalSteps)), [(1, 3), (2, 3), (3, 3)]);
+    });
+
+    test('pyramidLevelsOnly rejects a page already at or below minPyramidDimension', () {
+      final source = _sourcePage(width: 8, height: 8);
+      expect(
+        () => TiffDisplayOptimizer.optimize(
+          source,
+          mode: TiffOptimizationMode.pyramidLevelsOnly,
+          minPyramidDimension: 512,
+        ),
+        throwsArgumentError,
+      );
+    });
+
     test('rejects a non-positive tileSize', () {
       final source = _sourcePage();
       expect(
