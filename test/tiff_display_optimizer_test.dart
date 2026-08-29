@@ -225,6 +225,120 @@ void main() {
       );
     });
 
+    group('optimizeLargeSourcePyramidLevels', () {
+      test('with a generous maxDirectDecodePixels, matches pyramidLevelsOnly exactly', () {
+        final source = _sourcePage(width: 32, height: 32);
+
+        final viaLargeSource = TiffDecoder.decode(
+          TiffDisplayOptimizer.optimizeLargeSourcePyramidLevels(
+            source,
+            tileSize: 16,
+            minPyramidDimension: 8,
+            maxDirectDecodePixels: 32 * 32, // fits the whole source directly
+          ),
+        );
+        final viaPlain = TiffDecoder.decode(
+          TiffDisplayOptimizer.optimize(
+            source,
+            mode: TiffOptimizationMode.pyramidLevelsOnly,
+            tileSize: 16,
+            minPyramidDimension: 8,
+          ),
+        );
+
+        expect(viaLargeSource.images.length, viaPlain.images.length);
+        for (var i = 0; i < viaLargeSource.images.length; i++) {
+          expect(viaLargeSource.images[i].metadata.width, viaPlain.images[i].metadata.width);
+          expect(viaLargeSource.images[i].metadata.height, viaPlain.images[i].metadata.height);
+          expect(viaLargeSource.images[i].decodeRgba8(), viaPlain.images[i].decodeRgba8());
+        }
+      });
+
+      test('a tight maxDirectDecodePixels skips rungs larger than it, starting from the first that fits', () {
+        final source = _sourcePage(width: 64, height: 64);
+
+        // Halving sequence from 64: 32, 16, 8. A budget of 32*32 pixels
+        // rules out only the (never-produced-here) 64x64 base — the first
+        // rung this produces should be 32x32, same as pyramidLevelsOnly's
+        // own first rung would be.
+        final optimized = TiffDecoder.decode(
+          TiffDisplayOptimizer.optimizeLargeSourcePyramidLevels(
+            source,
+            tileSize: 16,
+            minPyramidDimension: 8,
+            maxDirectDecodePixels: 32 * 32,
+          ),
+        );
+        final dims = optimized.images.map((i) => (i.metadata.width, i.metadata.height)).toList();
+        expect(dims, [(32, 32), (16, 16), (8, 8)]);
+
+        // A tighter budget that also rules out 32x32 should skip straight
+        // to 16x16 as the first rung — one fewer level than above.
+        final tighter = TiffDecoder.decode(
+          TiffDisplayOptimizer.optimizeLargeSourcePyramidLevels(
+            source,
+            tileSize: 16,
+            minPyramidDimension: 8,
+            maxDirectDecodePixels: 16 * 16,
+          ),
+        );
+        final tighterDims = tighter.images.map((i) => (i.metadata.width, i.metadata.height)).toList();
+        expect(tighterDims, [(16, 16), (8, 8)]);
+      });
+
+      test('the first (banded) rung matches what plain box-downsampling would produce', () {
+        final source = _sourcePage(width: 64, height: 64);
+
+        final optimized = TiffDecoder.decode(
+          TiffDisplayOptimizer.optimizeLargeSourcePyramidLevels(
+            source,
+            tileSize: 16,
+            minPyramidDimension: 8,
+            maxDirectDecodePixels: 16 * 16,
+            maxBandBytes: 64 * 4, // forces many small bands (one source row each)
+          ),
+        );
+        final firstRung = optimized.images.first.decodeRgba8();
+
+        // Independently derived expected first rung: BandedDownsampler is
+        // documented to match a single direct ImageResampler.downsampleRgba8
+        // call from the whole (here, fully in-memory) source straight to
+        // the target size — not two sequential 2x halvings, which round at
+        // each intermediate step and so land on slightly different values.
+        final expected = ImageResampler.downsampleRgba8(
+          source.decodeRgba8(),
+          srcWidth: 64,
+          srcHeight: 64,
+          dstWidth: 16,
+          dstHeight: 16,
+        );
+        expect(firstRung, expected);
+      });
+
+      test('rejects a page already at or below minPyramidDimension, same as pyramidLevelsOnly', () {
+        final source = _sourcePage(width: 8, height: 8);
+        expect(
+          () => TiffDisplayOptimizer.optimizeLargeSourcePyramidLevels(
+            source,
+            minPyramidDimension: 512,
+          ),
+          throwsArgumentError,
+        );
+      });
+
+      test('rejects non-positive maxDirectDecodePixels/maxBandBytes', () {
+        final source = _sourcePage(width: 32, height: 32);
+        expect(
+          () => TiffDisplayOptimizer.optimizeLargeSourcePyramidLevels(source, maxDirectDecodePixels: 0),
+          throwsArgumentError,
+        );
+        expect(
+          () => TiffDisplayOptimizer.optimizeLargeSourcePyramidLevels(source, maxBandBytes: 0),
+          throwsArgumentError,
+        );
+      });
+    });
+
     test('rejects a non-positive tileSize', () {
       final source = _sourcePage();
       expect(

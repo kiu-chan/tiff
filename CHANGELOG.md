@@ -10,6 +10,22 @@
   it's already tiled), rather than a full standalone replacement file for
   it. Throws `ArgumentError` if the page's longest side is already at or
   below `minPyramidDimension`, since there'd be nothing smaller to build.
+- New `TiffDisplayOptimizer.optimizeLargeSourcePyramidLevels` builds the same
+  output as `pyramidLevelsOnly`, but for a source too large to safely decode
+  as one whole RGBA8 buffer — `optimize` always decodes the whole page
+  first regardless of mode, which for a real multi-gigapixel page can
+  itself be too large to hold in memory before any downsampling even
+  starts. This instead derives the first rung at or below
+  `maxDirectDecodePixels` via the new `BandedDownsampler`, which decodes the
+  source in row bands (bounded by `maxBandBytes`) rather than all at once —
+  bit-for-bit equivalent to what `ImageResampler.downsampleRgba8` would
+  produce given the whole source at once, just computed in bounded memory.
+  Every rung after that first one reuses the same in-memory halving
+  `optimize` itself uses, since each is smaller than the last and therefore
+  safe by construction. A rung above `maxDirectDecodePixels` is never
+  produced at all (not even via banding) — this exists to help only the far
+  zoomed-out end a viewer's own bounded-memory region/tile decode of the
+  source doesn't serve well.
 
 ## 0.3.0
 

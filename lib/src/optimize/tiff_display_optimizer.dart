@@ -6,6 +6,7 @@ import '../image/tiff_image.dart';
 import '../raster/color/image_resampler.dart';
 import '../tiff_encoder.dart';
 import '../write/tiff_image_spec.dart';
+import 'banded_downsampler.dart';
 
 /// How [TiffDisplayOptimizer.optimize] restructures a page.
 enum TiffOptimizationMode {
@@ -155,6 +156,110 @@ class TiffDisplayOptimizer {
         specs.add(_tiledRgbSpec(rgba, width, height, tileSize, compression));
         reportStep();
       }
+    }
+
+    final bytes = TiffEncoder.encode(specs);
+    reportStep();
+    return bytes;
+  }
+
+  /// Builds the same output [optimize] does with
+  /// [TiffOptimizationMode.pyramidLevelsOnly], but with no ceiling on
+  /// [page]'s own size: [optimize] always decodes the whole page as one
+  /// RGBA8 buffer first (see its own doc comment), which for a real
+  /// multi-gigapixel page can itself be too large to safely hold in memory
+  /// well before any downsampling even starts. This instead uses
+  /// [BandedDownsampler] to derive the *first* rung at or below
+  /// [maxDirectDecodePixels] straight from the source, decoding it in row
+  /// bands (bounded by [maxBandBytes]) rather than all at once — every rung
+  /// after that is small enough (by construction, since each is smaller
+  /// than the last) that the normal in-memory halving [optimize] itself
+  /// uses is safe to reuse for it.
+  ///
+  /// A rung larger than [maxDirectDecodePixels] is never produced at all,
+  /// not even via banding — this cache exists to help only the far
+  /// zoomed-out end a viewer's native, bounded-memory region/tile decode of
+  /// the source doesn't serve well; a rung close to the source's own
+  /// resolution offers little over just decoding the source directly for
+  /// that same zoom range. If the source itself is already at or below
+  /// [maxDirectDecodePixels], this degrades to exactly what [optimize]'s
+  /// `pyramidLevelsOnly` mode would have done directly.
+  ///
+  /// See [optimize] for what [tileSize], [minPyramidDimension],
+  /// [compression], and [onProgress] each do — identical here. Throws
+  /// [ArgumentError] under the same conditions `pyramidLevelsOnly` does
+  /// (invalid [tileSize]/[minPyramidDimension], or [page] already at or
+  /// below [minPyramidDimension]), plus if [maxDirectDecodePixels] or
+  /// [maxBandBytes] isn't positive.
+  static Uint8List optimizeLargeSourcePyramidLevels(
+    TiffImage page, {
+    int tileSize = 512,
+    int minPyramidDimension = 512,
+    int compression = 8,
+    int maxDirectDecodePixels = 64 * 1000 * 1000,
+    int maxBandBytes = 128 * 1024 * 1024,
+    void Function(TiffOptimizeProgress)? onProgress,
+  }) {
+    if (tileSize <= 0) {
+      throw ArgumentError('tileSize must be > 0');
+    }
+    if (minPyramidDimension <= 0) {
+      throw ArgumentError('minPyramidDimension must be > 0');
+    }
+    if (maxDirectDecodePixels <= 0) {
+      throw ArgumentError('maxDirectDecodePixels must be > 0');
+    }
+    if (maxBandBytes <= 0) {
+      throw ArgumentError('maxBandBytes must be > 0');
+    }
+
+    final baseWidth = page.metadata.width;
+    final baseHeight = page.metadata.height;
+    if (math.max(baseWidth, baseHeight) <= minPyramidDimension) {
+      throw ArgumentError(
+        'page is already at or below minPyramidDimension ($minPyramidDimension); '
+        'there is no smaller pyramid level to build',
+      );
+    }
+
+    // Always halve at least once from the true base — pyramidLevelsOnly
+    // semantics never include the base resolution itself as a rung, even
+    // when the base already fits maxDirectDecodePixels on its own.
+    var width = math.max(1, baseWidth ~/ 2);
+    var height = math.max(1, baseHeight ~/ 2);
+    while (width * height > maxDirectDecodePixels && math.max(width, height) > minPyramidDimension) {
+      width = math.max(1, width ~/ 2);
+      height = math.max(1, height ~/ 2);
+    }
+
+    final totalLevels = _countLevels(width, height, minPyramidDimension);
+    // +1 reserves a step for the final TiffEncoder.encode call below, so
+    // onProgress never reports completion before the result actually exists.
+    final totalSteps = totalLevels + 1;
+    var completedSteps = 0;
+    void reportStep() {
+      completedSteps++;
+      onProgress?.call((completedSteps: completedSteps, totalSteps: totalSteps, fraction: completedSteps / totalSteps));
+    }
+
+    var rgba = BandedDownsampler.downsample(page, dstWidth: width, dstHeight: height, maxBandBytes: maxBandBytes);
+    final specs = <TiffImageSpec>[_tiledRgbSpec(rgba, width, height, tileSize, compression)];
+    reportStep();
+
+    while (math.max(width, height) > minPyramidDimension) {
+      final nextWidth = math.max(1, width ~/ 2);
+      final nextHeight = math.max(1, height ~/ 2);
+      rgba = ImageResampler.downsampleRgba8(
+        rgba,
+        srcWidth: width,
+        srcHeight: height,
+        dstWidth: nextWidth,
+        dstHeight: nextHeight,
+      );
+      width = nextWidth;
+      height = nextHeight;
+      specs.add(_tiledRgbSpec(rgba, width, height, tileSize, compression));
+      reportStep();
     }
 
     final bytes = TiffEncoder.encode(specs);
