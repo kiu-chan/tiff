@@ -20,14 +20,22 @@ class PixelUnpacker {
   }) {
     if (bitsPerSample % 8 == 0 && bitsPerSample <= 32) {
       final byteWidth = bitsPerSample ~/ 8;
+
+      // 8-bit is the by far most common depth, and needs no per-sample
+      // unpacking at all — rowBytes already *is* one byte per sample, so a
+      // bulk copy replaces what would otherwise be a ByteData.getUint8 call
+      // (with its own bounds/type check) for every single byte.
+      if (byteWidth == 1) {
+        final out = Uint8List(sampleCount);
+        out.setRange(0, sampleCount, rowBytes);
+        return out;
+      }
+
       final data = ByteData.sublistView(rowBytes);
       final out = allocateSampleBuffer(bitsPerSample, sampleCount);
       for (var i = 0; i < sampleCount; i++) {
         final off = i * byteWidth;
         switch (byteWidth) {
-          case 1:
-            out[i] = data.getUint8(off);
-            break;
           case 2:
             out[i] = data.getUint16(off, endian);
             break;

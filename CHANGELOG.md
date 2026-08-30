@@ -1,3 +1,59 @@
+## 0.5.1
+
+- Faster `TiffDisplayOptimizer.optimize`/`optimizeLargeSourcePyramidLevels`,
+  aimed squarely at the pyramid-cache-building path (see
+  `TiffOptimizationMode.pyramidLevelsOnly`): `TileWriter`'s per-tile scratch
+  buffer was a generic, boxed `List<int>` (8 bytes/element) filled one
+  sample at a time even for the common 8-bit-RGB case, where 1 byte/element
+  and a bulk `setRange` copy is all that's needed; `ChunkEncoder` and
+  `PixelPacker` copied and repacked each row through more per-element loops
+  than an already-byte-shaped 8-bit row needs. All three now use typed
+  buffers and bulk copies instead, which is where most of a large pyramid's
+  build time was actually going — decoding and downsampling the source
+  itself is comparatively fast. `ImageResampler.downsampleRgba8` also gets
+  a dedicated fast path for an exact 2x2 box filter (every pyramid rung
+  after the first is exactly half the size of the one before it) and no
+  longer recomputes each output column's source span on every single output
+  row.
+- `TiffOptimizeProgress` (returned via `optimize`'s/
+  `optimizeLargeSourcePyramidLevels`'s `onProgress`) is richer and far more
+  granular — this is a breaking change to its shape. It used to fire once
+  per pyramid rung plus once at the very end, with the (often largest)
+  final tile-and-compress pass reported as a single opaque step. It now
+  carries a `TiffOptimizeStage` (`decoding`, `downsampling`, or `encoding`),
+  a `level`/`levelCount` locating which pyramid rung an update belongs to,
+  and a `stepIndex`/`stepCount` for progress *within* that stage — e.g. one
+  update per row-band while `optimizeLargeSourcePyramidLevels` banded-decodes
+  its first rung, and one update per tile while every rung is compressed.
+  `fraction` is now weighted by how many pixels each phase actually
+  touches rather than by rung count, so it tracks real elapsed time much
+  more closely — a caller driving a progress bar or status message off it
+  gets both a smoother bar and a much better idea of what's actually
+  happening (e.g. "decoding source, band 12/40" vs. an unmoving bar during
+  what used to be the single biggest, totally silent step).
+- New `BandedDownsampler.downsampleParallel` and
+  `TiffDisplayOptimizer.optimizeLargeSourcePyramidLevelsParallel`: the same
+  banded-decode-then-box-filter downsample as `BandedDownsampler.downsample`/
+  `optimizeLargeSourcePyramidLevels`, but spreading the decode of a huge
+  source's first pyramid rung across multiple isolates instead of one band
+  at a time on a single core — real multi-core parallelism for what's
+  usually the dominant cost of building a pyramid for a truly large source.
+  Bit-for-bit identical output to the sequential versions given the same
+  `maxBandBytes`; only which isolate decodes each band (and how long it
+  takes) differs. Both are purely additive — the existing synchronous
+  `downsample`/`optimizeLargeSourcePyramidLevels` are unchanged and still
+  the right choice for a source small enough that isolate-spawn overhead
+  wouldn't pay for itself.
+- Small, safe decode-side speedups in the same spirit as the encode-side
+  ones above: `ChunkDecoder`'s per-row unpack now bulk-copies into its
+  output buffer instead of a per-element loop; `PixelUnpacker.unpackRow`
+  bulk-copies the common 8-bit case instead of one `ByteData.getUint8` call
+  per byte; `RgbTransform`/`GrayscaleTransform` skip their scale-to-0..255
+  math entirely for 8-bit sources, where it's always the identity; and
+  `BandedDownsampler`/`ImageResampler.downsampleRgba8`'s box-filter
+  finalization uses integer round-half-up instead of a double divide and
+  `.round()` per channel per pixel.
+
 ## 0.5.0
 
 - New `package:tiff/tiff_minimap.dart` entry point, adding a `TiffMinimap`

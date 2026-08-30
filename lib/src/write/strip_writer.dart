@@ -13,21 +13,27 @@ import 'tiff_image_spec.dart';
 class StripWriter {
   const StripWriter._();
 
-  static List<Uint8List> buildChunks(TiffImageSpec spec, Endian endian) {
+  static List<Uint8List> buildChunks(
+    TiffImageSpec spec,
+    Endian endian, {
+    void Function(int chunkIndex, int chunkCount)? onChunkEncoded,
+  }) {
     final rowsPerStrip = spec.rowsPerStrip ?? spec.height;
     if (rowsPerStrip <= 0) {
       throw const TiffException('rowsPerStrip must be positive');
     }
 
+    final chunkCount = (spec.height + rowsPerStrip - 1) ~/ rowsPerStrip;
     final chunks = <Uint8List>[];
     var rowIndex = 0;
     while (rowIndex < spec.height) {
       final rows = math.min(rowsPerStrip, spec.height - rowIndex);
       final start = rowIndex * spec.width * spec.samplesPerPixel;
       final end = (rowIndex + rows) * spec.width * spec.samplesPerPixel;
+      final samples = spec.samples;
       chunks.add(
         ChunkEncoder.encodeChunk(
-          samples: spec.samples.sublist(start, end),
+          samples: samples is Uint8List ? Uint8List.sublistView(samples, start, end) : samples.sublist(start, end),
           compression: spec.compression,
           predictor: spec.predictor,
           rows: rows,
@@ -38,6 +44,7 @@ class StripWriter {
         ),
       );
       rowIndex += rows;
+      onChunkEncoded?.call(chunks.length, chunkCount);
     }
     return chunks;
   }

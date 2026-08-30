@@ -88,9 +88,7 @@ class ChunkDecoder {
         endian: endian,
       );
       final destStart = r * columns * samplesPerPixel;
-      for (var i = 0; i < rowSamples.length; i++) {
-        samples[destStart + i] = rowSamples[i];
-      }
+      samples.setRange(destStart, destStart + rowSamples.length, rowSamples);
     }
     return samples;
   }

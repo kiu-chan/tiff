@@ -1,3 +1,6 @@
+import 'dart:io';
+import 'dart:typed_data';
+
 import 'package:test/test.dart';
 import 'package:tiff/tiff.dart';
 
@@ -5,13 +8,19 @@ import 'package:tiff/tiff.dart';
 /// gradient — the kind of plain source [TiffDisplayOptimizer] is meant to
 /// restructure.
 TiffImage _sourcePage({int width = 8, int height = 8}) {
+  final spec = _sourceSpec(width: width, height: height);
+  final bytes = TiffEncoder.encode([spec]);
+  return TiffDecoder.decode(bytes).images.single;
+}
+
+TiffImageSpec _sourceSpec({int width = 8, int height = 8}) {
   final samples = <int>[];
   for (var y = 0; y < height; y++) {
     for (var x = 0; x < width; x++) {
       samples.addAll([(x * 255 ~/ width), (y * 255 ~/ height), 128]);
     }
   }
-  final spec = TiffImageSpec(
+  return TiffImageSpec(
     width: width,
     height: height,
     samplesPerPixel: 3,
@@ -19,8 +28,16 @@ TiffImage _sourcePage({int width = 8, int height = 8}) {
     photometric: TiffPhotometric.rgb,
     samples: samples,
   );
-  final bytes = TiffEncoder.encode([spec]);
-  return TiffDecoder.decode(bytes).images.single;
+}
+
+/// [TiffDisplayOptimizer.optimizeLargeSourcePyramidLevelsParallel] needs a
+/// real file on disk (each worker isolate opens its own handle) rather than
+/// an already-open [TiffImage].
+String _writeSourceFixture(Directory dir, {int width = 8, int height = 8}) {
+  final bytes = Uint8List.fromList(TiffEncoder.encode([_sourceSpec(width: width, height: height)]));
+  final path = '${dir.path}/fixture.tiff';
+  File(path).writeAsBytesSync(bytes);
+  return path;
 }
 
 void main() {
@@ -123,7 +140,7 @@ void main() {
       expect(page.decodeRgba8().length, 8 * 8 * 4);
     });
 
-    test('onProgress reports concrete step counts per rung, ending at completedSteps == totalSteps', () {
+    test('onProgress reports decode, downsample, and per-tile encode updates for every rung, ending at fraction 1.0', () {
       final source = _sourcePage(width: 32, height: 32);
       final progress = <TiffOptimizeProgress>[];
 
@@ -135,17 +152,24 @@ void main() {
         onProgress: progress.add,
       );
 
-      // 3 rungs (32 -> 16 -> 8) plus the final post-encode step == 4 total.
-      expect(progress, hasLength(4));
-      expect(progress.every((p) => p.totalSteps == 4), isTrue);
-      expect(progress.map((p) => p.completedSteps), [1, 2, 3, 4]);
-      expect(progress.map((p) => p.fraction), [0.25, 0.5, 0.75, 1.0]);
-      final last = progress.last;
-      expect(last.completedSteps, last.totalSteps);
-      expect(last.fraction, 1.0);
+      expect(progress, isNotEmpty);
+      // 3 rungs (32 -> 16 -> 8): one whole-page decode, two downsamples, and
+      // some number of per-tile encode updates per rung.
+      expect(progress.every((p) => p.levelCount == 3), isTrue);
+      expect(progress.where((p) => p.stage == TiffOptimizeStage.decoding).map((p) => p.level), [0]);
+      expect(progress.where((p) => p.stage == TiffOptimizeStage.downsampling).map((p) => p.level), [1, 2]);
+      expect(progress.where((p) => p.stage == TiffOptimizeStage.encoding).map((p) => p.level).toSet(), {0, 1, 2});
+
+      // fraction is monotonically non-decreasing and ends exactly at 1.0.
+      for (var i = 1; i < progress.length; i++) {
+        expect(progress[i].fraction, greaterThanOrEqualTo(progress[i - 1].fraction));
+      }
+      expect(progress.last.fraction, 1.0);
+      expect(progress.last.stage, TiffOptimizeStage.encoding);
+      expect(progress.last.stepIndex, progress.last.stepCount);
     });
 
-    test('onProgress reports just 2 steps for tiledOnly (no pyramid rungs)', () {
+    test('onProgress reports a single-level encode for tiledOnly (no pyramid rungs)', () {
       final source = _sourcePage(width: 32, height: 32);
       final progress = <TiffOptimizeProgress>[];
 
@@ -156,7 +180,12 @@ void main() {
         onProgress: progress.add,
       );
 
-      expect(progress.map((p) => (p.completedSteps, p.totalSteps, p.fraction)), [(1, 2, 0.5), (2, 2, 1.0)]);
+      expect(progress, isNotEmpty);
+      expect(progress.every((p) => p.levelCount == 1 && p.level == 0), isTrue);
+      expect(progress.where((p) => p.stage == TiffOptimizeStage.decoding), hasLength(1));
+      expect(progress.where((p) => p.stage == TiffOptimizeStage.downsampling), isEmpty);
+      expect(progress.where((p) => p.stage == TiffOptimizeStage.encoding), isNotEmpty);
+      expect(progress.last.fraction, 1.0);
     });
 
     test('pyramidLevelsOnly builds the same rungs as tiledPyramid minus the base level', () {
@@ -197,7 +226,7 @@ void main() {
       }
     });
 
-    test('onProgress reports rungs only (no base-level step) for pyramidLevelsOnly', () {
+    test('onProgress reports 2 output levels (no encode step for the base) for pyramidLevelsOnly', () {
       final source = _sourcePage(width: 32, height: 32);
       final progress = <TiffOptimizeProgress>[];
 
@@ -209,8 +238,11 @@ void main() {
         onProgress: progress.add,
       );
 
-      // 2 rungs (16, 8) plus the final post-encode step == 3 total.
-      expect(progress.map((p) => (p.completedSteps, p.totalSteps)), [(1, 3), (2, 3), (3, 3)]);
+      // Output is 2 rungs (16, 8) — the 32x32 base is still decoded (level 0
+      // of the decoding stage) and downsampled from, but never encoded.
+      expect(progress.every((p) => p.levelCount == 2), isTrue);
+      expect(progress.where((p) => p.stage == TiffOptimizeStage.encoding).map((p) => p.level).toSet(), {0, 1});
+      expect(progress.last.fraction, 1.0);
     });
 
     test('pyramidLevelsOnly rejects a page already at or below minPyramidDimension', () {
@@ -315,6 +347,36 @@ void main() {
         expect(firstRung, expected);
       });
 
+      test('onProgress reports multiple banded decode updates before any downsample/encode ones', () {
+        final source = _sourcePage(width: 64, height: 64);
+        final progress = <TiffOptimizeProgress>[];
+
+        TiffDisplayOptimizer.optimizeLargeSourcePyramidLevels(
+          source,
+          tileSize: 16,
+          minPyramidDimension: 8,
+          maxDirectDecodePixels: 16 * 16,
+          maxBandBytes: 64 * 4, // forces many small bands (one source row each)
+          onProgress: progress.add,
+        );
+
+        final decodeUpdates = progress.where((p) => p.stage == TiffOptimizeStage.decoding).toList();
+        // 16 rows in, banded 1 source row at a time -> 16 separate updates,
+        // not one opaque "decode done" call the way this used to report.
+        expect(decodeUpdates.length, greaterThan(1));
+        expect(decodeUpdates.map((p) => p.level), everyElement(0));
+        expect(decodeUpdates.last.stepIndex, decodeUpdates.last.stepCount);
+
+        // Every decode update comes before the first downsample/encode one.
+        final firstNonDecodeIndex = progress.indexWhere((p) => p.stage != TiffOptimizeStage.decoding);
+        expect(firstNonDecodeIndex, decodeUpdates.length);
+
+        for (var i = 1; i < progress.length; i++) {
+          expect(progress[i].fraction, greaterThanOrEqualTo(progress[i - 1].fraction));
+        }
+        expect(progress.last.fraction, 1.0);
+      });
+
       test('rejects a page already at or below minPyramidDimension, same as pyramidLevelsOnly', () {
         final source = _sourcePage(width: 8, height: 8);
         expect(
@@ -336,6 +398,82 @@ void main() {
           () => TiffDisplayOptimizer.optimizeLargeSourcePyramidLevels(source, maxBandBytes: 0),
           throwsArgumentError,
         );
+      });
+
+      group('optimizeLargeSourcePyramidLevelsParallel', () {
+        late Directory tempDir;
+        setUp(() => tempDir = Directory.systemTemp.createTempSync('tiff_display_optimizer_test_'));
+        tearDown(() => tempDir.deleteSync(recursive: true));
+
+        test('matches optimizeLargeSourcePyramidLevels bit-for-bit', () async {
+          const width = 64, height = 64;
+          final path = _writeSourceFixture(tempDir, width: width, height: height);
+          final sequential = TiffDecoder.decode(
+            TiffDisplayOptimizer.optimizeLargeSourcePyramidLevels(
+              _sourcePage(width: width, height: height),
+              tileSize: 16,
+              minPyramidDimension: 8,
+              maxDirectDecodePixels: 16 * 16,
+              maxBandBytes: 64 * 4, // forces many small, worker-interleaved bands
+            ),
+          );
+
+          final parallelBytes = await TiffDisplayOptimizer.optimizeLargeSourcePyramidLevelsParallel(
+            _sourcePage(width: width, height: height),
+            path,
+            tileSize: 16,
+            minPyramidDimension: 8,
+            maxDirectDecodePixels: 16 * 16,
+            maxBandBytes: 64 * 4,
+            workerCount: 4,
+          );
+          final parallel = TiffDecoder.decode(parallelBytes);
+
+          expect(parallel.images.length, sequential.images.length);
+          for (var i = 0; i < parallel.images.length; i++) {
+            expect(parallel.images[i].metadata.width, sequential.images[i].metadata.width);
+            expect(parallel.images[i].metadata.height, sequential.images[i].metadata.height);
+            expect(parallel.images[i].decodeRgba8(), sequential.images[i].decodeRgba8());
+          }
+        });
+
+        test('onProgress reports banded decode, downsample, and encode updates ending at fraction 1.0', () async {
+          const width = 64, height = 64;
+          final path = _writeSourceFixture(tempDir, width: width, height: height);
+          final progress = <TiffOptimizeProgress>[];
+
+          await TiffDisplayOptimizer.optimizeLargeSourcePyramidLevelsParallel(
+            _sourcePage(width: width, height: height),
+            path,
+            tileSize: 16,
+            minPyramidDimension: 8,
+            maxDirectDecodePixels: 16 * 16,
+            maxBandBytes: 64 * 4,
+            workerCount: 4,
+            onProgress: progress.add,
+          );
+
+          expect(progress, isNotEmpty);
+          final decodeUpdates = progress.where((p) => p.stage == TiffOptimizeStage.decoding).toList();
+          expect(decodeUpdates.length, greaterThan(1));
+          for (var i = 1; i < progress.length; i++) {
+            expect(progress[i].fraction, greaterThanOrEqualTo(progress[i - 1].fraction));
+          }
+          expect(progress.last.fraction, 1.0);
+        });
+
+        test('rejects a page already at or below minPyramidDimension', () async {
+          final path = _writeSourceFixture(tempDir);
+          expect(
+            () => TiffDisplayOptimizer.optimizeLargeSourcePyramidLevelsParallel(
+              _sourcePage(),
+              path,
+              minPyramidDimension: 512,
+              workerCount: 2,
+            ),
+            throwsArgumentError,
+          );
+        });
       });
     });
 

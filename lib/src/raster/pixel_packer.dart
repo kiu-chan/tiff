@@ -16,14 +16,29 @@ class PixelPacker {
   }) {
     if (bitsPerSample % 8 == 0 && bitsPerSample <= 32) {
       final byteWidth = bitsPerSample ~/ 8;
+
+      // 8-bit is the by far most common depth (every display-optimizer
+      // pyramid rung is 8-bit RGB) and needs no per-sample repacking at
+      // all — a byte-for-byte copy already *is* the packed form. Route it
+      // through a bulk copy instead of the ByteData.setUint8 loop below,
+      // which pays a bounds/type check per single byte for no benefit here.
+      if (byteWidth == 1) {
+        final out = Uint8List(samples.length);
+        if (samples is Uint8List) {
+          out.setRange(0, samples.length, samples);
+        } else {
+          for (var i = 0; i < samples.length; i++) {
+            out[i] = samples[i];
+          }
+        }
+        return out;
+      }
+
       final out = Uint8List(samples.length * byteWidth);
       final data = ByteData.sublistView(out);
       for (var i = 0; i < samples.length; i++) {
         final off = i * byteWidth;
         switch (byteWidth) {
-          case 1:
-            data.setUint8(off, samples[i]);
-            break;
           case 2:
             data.setUint16(off, samples[i], endian);
             break;

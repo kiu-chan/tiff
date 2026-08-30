@@ -30,10 +30,12 @@ class ChunkEncoder {
 
     for (var r = 0; r < rows; r++) {
       final rowStart = r * columns * samplesPerPixel;
-      final rowSamples = samples.sublist(
-        rowStart,
-        rowStart + columns * samplesPerPixel,
-      );
+      final rowEnd = rowStart + columns * samplesPerPixel;
+      // A zero-copy view when possible (the common case: samples is the
+      // Uint8List a `TileWriter`/`StripWriter` row buffer already is) —
+      // `sublist` would otherwise allocate and copy this row's worth of
+      // samples fresh for every single row of every chunk.
+      final rowSamples = samples is Uint8List ? Uint8List.sublistView(samples, rowStart, rowEnd) : samples.sublist(rowStart, rowEnd);
       final rowBytes = PixelPacker.packRow(
         samples: rowSamples,
         bitsPerSample: bitsPerSample,

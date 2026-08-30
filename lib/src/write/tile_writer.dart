@@ -17,7 +17,11 @@ import 'tiff_image_spec.dart';
 class TileWriter {
   const TileWriter._();
 
-  static List<Uint8List> buildChunks(TiffImageSpec spec, Endian endian) {
+  static List<Uint8List> buildChunks(
+    TiffImageSpec spec,
+    Endian endian, {
+    void Function(int chunkIndex, int chunkCount)? onChunkEncoded,
+  }) {
     final tileWidth = spec.tileWidth!;
     final tileLength = spec.tileLength!;
     if (tileWidth <= 0 || tileLength <= 0) {
@@ -26,6 +30,7 @@ class TileWriter {
 
     final tilesAcross = (spec.width + tileWidth - 1) ~/ tileWidth;
     final tilesDown = (spec.height + tileLength - 1) ~/ tileLength;
+    final chunkCount = tilesAcross * tilesDown;
     final chunks = <Uint8List>[];
 
     for (var ty = 0; ty < tilesDown; ty++) {
@@ -35,18 +40,19 @@ class TileWriter {
         final validWidth = math.min(tileWidth, spec.width - originX);
         final validHeight = math.min(tileLength, spec.height - originY);
 
-        final tileSamples = List<int>.filled(
-          tileWidth * tileLength * spec.samplesPerPixel,
-          0,
-        );
+        // A typed buffer sized to `bitsPerSample` rather than a generic
+        // `List<int>.filled` — the latter stores each sample as a full
+        // 8-byte tagged slot (vs. 1 byte here for the common 8-bit-RGB
+        // case this feeds from `TiffDisplayOptimizer`), and `setRange`
+        // below only gets its bulk-memmove fast path when both sides are
+        // typed data of the same element size.
+        final tileSamples = _newSampleBuffer(spec.bitsPerSample, tileWidth * tileLength * spec.samplesPerPixel);
         final rowLen = validWidth * spec.samplesPerPixel;
         for (var row = 0; row < validHeight; row++) {
           final srcStart =
               ((originY + row) * spec.width + originX) * spec.samplesPerPixel;
           final destStart = row * tileWidth * spec.samplesPerPixel;
-          for (var i = 0; i < rowLen; i++) {
-            tileSamples[destStart + i] = spec.samples[srcStart + i];
-          }
+          tileSamples.setRange(destStart, destStart + rowLen, spec.samples, srcStart);
         }
 
         chunks.add(
@@ -61,9 +67,22 @@ class TileWriter {
             endian: endian,
           ),
         );
+        onChunkEncoded?.call(chunks.length, chunkCount);
       }
     }
     return chunks;
+  }
+
+  /// The smallest typed-data list that can hold every value an
+  /// [bitsPerSample]-wide sample can take, used instead of a generic
+  /// `List<int>` for [buildChunks]' per-tile scratch buffer — see its call
+  /// site for why that matters. Anything above 16 bits (24- or 32-bit
+  /// samples) falls back to [Uint32List]; there's no `Uint24List`, and a
+  /// 24-bit sample's values fit comfortably in one anyway.
+  static List<int> _newSampleBuffer(int bitsPerSample, int length) {
+    if (bitsPerSample <= 8) return Uint8List(length);
+    if (bitsPerSample <= 16) return Uint16List(length);
+    return Uint32List(length);
   }
 
   static List<IfdField> buildFields({

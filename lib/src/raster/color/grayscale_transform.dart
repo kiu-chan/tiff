@@ -10,9 +10,15 @@ class GrayscaleTransform {
     final maxValue = (1 << raster.bitsPerSample) - 1;
     final pixelCount = raster.width * raster.height;
     final out = Uint8List(pixelCount * 4);
+    final samples = raster.samples;
+    final spp = raster.samplesPerPixel;
     for (var p = 0; p < pixelCount; p++) {
-      final raw = raster.samples[p * raster.samplesPerPixel];
-      var v8 = maxValue == 0
+      final raw = samples[p * spp];
+      // 8-bit is the common case, where scaling to 0..255 is the identity —
+      // skip the float divide-and-round for it.
+      var v8 = maxValue == 255
+          ? raw
+          : maxValue == 0
           ? 0
           : ((raw * 255) / maxValue).round().clamp(0, 255);
       if (invert) v8 = 255 - v8;
