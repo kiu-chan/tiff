@@ -33,7 +33,9 @@ class StripWriter {
       final samples = spec.samples;
       chunks.add(
         ChunkEncoder.encodeChunk(
-          samples: samples is Uint8List ? Uint8List.sublistView(samples, start, end) : samples.sublist(start, end),
+          samples: samples is Uint8List
+              ? Uint8List.sublistView(samples, start, end)
+              : samples.sublist(start, end),
           compression: spec.compression,
           predictor: spec.predictor,
           rows: rows,

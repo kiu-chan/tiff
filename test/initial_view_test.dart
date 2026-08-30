@@ -61,24 +61,21 @@ void main() {
       expect(view.zoom, closeTo(1.0, 1e-9));
     });
 
-    test(
-      'a budget tighter than the viewport shrinks the region and zooms in '
-      'to compensate',
-      () {
-        final metadata = _metadataFor(20000, 20000);
+    test('a budget tighter than the viewport shrinks the region and zooms in '
+        'to compensate', () {
+      final metadata = _metadataFor(20000, 20000);
 
-        final view = TiffInitialView.forViewport(
-          metadata,
-          viewportWidth: 2000,
-          viewportHeight: 2000,
-          maxDecodedPixels: 1000000, // 1000x1000 < the 2000x2000 viewport
-        );
+      final view = TiffInitialView.forViewport(
+        metadata,
+        viewportWidth: 2000,
+        viewportHeight: 2000,
+        maxDecodedPixels: 1000000, // 1000x1000 < the 2000x2000 viewport
+      );
 
-        expect(view.region.width, 1000);
-        expect(view.region.height, 1000);
-        expect(view.zoom, closeTo(2.0, 1e-9)); // 2000 / 1000
-      },
-    );
+      expect(view.region.width, 1000);
+      expect(view.region.height, 1000);
+      expect(view.zoom, closeTo(2.0, 1e-9)); // 2000 / 1000
+    });
 
     test('preserves the viewport aspect ratio when shrinking for budget', () {
       final metadata = _metadataFor(20000, 20000);

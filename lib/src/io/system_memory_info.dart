@@ -23,7 +23,10 @@ class SystemMemoryInfo {
   /// and other processes.
   final int availableBytes;
 
-  const SystemMemoryInfo({required this.totalBytes, required this.availableBytes});
+  const SystemMemoryInfo({
+    required this.totalBytes,
+    required this.availableBytes,
+  });
 
   static SystemMemoryInfo? _cached;
   static DateTime? _cachedAt;
@@ -33,10 +36,14 @@ class SystemMemoryInfo {
   /// call would be wasteful for a caller probing repeatedly in a short
   /// window, so a reading is reused for [maxAge] before this shells out
   /// again; pass `Duration.zero` to force a fresh read.
-  static SystemMemoryInfo? probe({Duration maxAge = const Duration(seconds: 5)}) {
+  static SystemMemoryInfo? probe({
+    Duration maxAge = const Duration(seconds: 5),
+  }) {
     final cached = _cached;
     final cachedAt = _cachedAt;
-    if (cached != null && cachedAt != null && DateTime.now().difference(cachedAt) < maxAge) {
+    if (cached != null &&
+        cachedAt != null &&
+        DateTime.now().difference(cachedAt) < maxAge) {
       return cached;
     }
     final fresh = _probeUncached();
@@ -69,15 +76,20 @@ class SystemMemoryInfo {
     if (vmStat.exitCode != 0) return null;
     final output = '${vmStat.stdout}';
 
-    final pageSizeMatch = RegExp(r'page size of (\d+) bytes').firstMatch(output);
-    final pageSize = pageSizeMatch != null ? int.parse(pageSizeMatch.group(1)!) : 4096;
+    final pageSizeMatch = RegExp(
+      r'page size of (\d+) bytes',
+    ).firstMatch(output);
+    final pageSize = pageSizeMatch != null
+        ? int.parse(pageSizeMatch.group(1)!)
+        : 4096;
 
     int pagesFor(String label) {
       final match = RegExp('$label:\\s*(\\d+)').firstMatch(output);
       return match != null ? int.parse(match.group(1)!) : 0;
     }
 
-    final available = (pagesFor('Pages free') + pagesFor('Pages inactive')) * pageSize;
+    final available =
+        (pagesFor('Pages free') + pagesFor('Pages inactive')) * pageSize;
     return SystemMemoryInfo(totalBytes: total, availableBytes: available);
   }
 
@@ -94,7 +106,10 @@ class SystemMemoryInfo {
     final totalKb = kbFor('MemTotal');
     final availableKb = kbFor('MemAvailable') ?? kbFor('MemFree');
     if (totalKb == null || availableKb == null) return null;
-    return SystemMemoryInfo(totalBytes: totalKb * 1024, availableBytes: availableKb * 1024);
+    return SystemMemoryInfo(
+      totalBytes: totalKb * 1024,
+      availableBytes: availableKb * 1024,
+    );
   }
 
   static SystemMemoryInfo? _probeWindows() {
@@ -115,6 +130,9 @@ class SystemMemoryInfo {
     final totalKb = kbFor('TotalVisibleMemorySize');
     final freeKb = kbFor('FreePhysicalMemory');
     if (totalKb == null || freeKb == null) return null;
-    return SystemMemoryInfo(totalBytes: totalKb * 1024, availableBytes: freeKb * 1024);
+    return SystemMemoryInfo(
+      totalBytes: totalKb * 1024,
+      availableBytes: freeKb * 1024,
+    );
   }
 }

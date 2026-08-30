@@ -35,7 +35,9 @@ class ChunkEncoder {
       // Uint8List a `TileWriter`/`StripWriter` row buffer already is) —
       // `sublist` would otherwise allocate and copy this row's worth of
       // samples fresh for every single row of every chunk.
-      final rowSamples = samples is Uint8List ? Uint8List.sublistView(samples, rowStart, rowEnd) : samples.sublist(rowStart, rowEnd);
+      final rowSamples = samples is Uint8List
+          ? Uint8List.sublistView(samples, rowStart, rowEnd)
+          : samples.sublist(rowStart, rowEnd);
       final rowBytes = PixelPacker.packRow(
         samples: rowSamples,
         bitsPerSample: bitsPerSample,

@@ -46,13 +46,21 @@ class TileWriter {
         // case this feeds from `TiffDisplayOptimizer`), and `setRange`
         // below only gets its bulk-memmove fast path when both sides are
         // typed data of the same element size.
-        final tileSamples = _newSampleBuffer(spec.bitsPerSample, tileWidth * tileLength * spec.samplesPerPixel);
+        final tileSamples = _newSampleBuffer(
+          spec.bitsPerSample,
+          tileWidth * tileLength * spec.samplesPerPixel,
+        );
         final rowLen = validWidth * spec.samplesPerPixel;
         for (var row = 0; row < validHeight; row++) {
           final srcStart =
               ((originY + row) * spec.width + originX) * spec.samplesPerPixel;
           final destStart = row * tileWidth * spec.samplesPerPixel;
-          tileSamples.setRange(destStart, destStart + rowLen, spec.samples, srcStart);
+          tileSamples.setRange(
+            destStart,
+            destStart + rowLen,
+            spec.samples,
+            srcStart,
+          );
         }
 
         chunks.add(

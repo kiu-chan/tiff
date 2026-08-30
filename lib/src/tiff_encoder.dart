@@ -24,7 +24,8 @@ class TiffEncoder {
     List<TiffImageSpec> pages, {
     bool? bigTiff,
     Endian endian = Endian.little,
-    void Function(int pageIndex, int pageCount, int chunkIndex, int chunkCount)? onChunkEncoded,
+    void Function(int pageIndex, int pageCount, int chunkIndex, int chunkCount)?
+    onChunkEncoded,
   }) {
     return TiffWriter.write(
       pages: pages,

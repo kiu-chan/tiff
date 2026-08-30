@@ -17,8 +17,15 @@ typedef TiffBand = ({int y, int height, Uint8List rgba});
 /// than a custom class) since that's what crosses an isolate boundary
 /// cleanly. [setUpIsolate] must be a static or top-level function reference
 /// (a closure over local state can't cross the boundary at all).
-typedef _WorkerArgs =
-    (SendPort, String filePath, int pageIndex, int width, int bandHeight, List<(int, int)> chunks, void Function()? setUpIsolate);
+typedef _WorkerArgs = (
+  SendPort,
+  String filePath,
+  int pageIndex,
+  int width,
+  int bandHeight,
+  List<(int, int)> chunks,
+  void Function()? setUpIsolate,
+);
 
 /// Decodes a TIFF/BigTIFF page in horizontal bands across a pool of
 /// isolates — the parallel counterpart to [TiffImage.decodeRegionRgba8]'s
@@ -94,18 +101,30 @@ class TiffParallelDecoder {
     try {
       final document = TiffDecoder.decodeSource(metadataSource);
       if (pageIndex < 0 || pageIndex >= document.images.length) {
-        throw ArgumentError.value(pageIndex, 'pageIndex', 'out of range (page count: ${document.images.length})');
+        throw ArgumentError.value(
+          pageIndex,
+          'pageIndex',
+          'out of range (page count: ${document.images.length})',
+        );
       }
       final metadata = document.images[pageIndex].metadata;
       width = metadata.width;
-      chunks = TiffChunkPlan.forBudget(metadata, maxBytesPerChunk: maxBytesPerChunk).chunks;
+      chunks = TiffChunkPlan.forBudget(
+        metadata,
+        maxBytesPerChunk: maxBytesPerChunk,
+      ).chunks;
     } finally {
       metadataSource.close();
     }
     if (chunks.isEmpty) return;
 
-    final effectiveWorkerCount = workerCount < chunks.length ? workerCount : chunks.length;
-    final chunksByWorker = List.generate(effectiveWorkerCount, (_) => <(int, int)>[]);
+    final effectiveWorkerCount = workerCount < chunks.length
+        ? workerCount
+        : chunks.length;
+    final chunksByWorker = List.generate(
+      effectiveWorkerCount,
+      (_) => <(int, int)>[],
+    );
     for (var i = 0; i < chunks.length; i++) {
       chunksByWorker[i % effectiveWorkerCount].add(chunks[i]);
     }
@@ -116,10 +135,15 @@ class TiffParallelDecoder {
     try {
       for (final assigned in chunksByWorker) {
         isolates.add(
-          await Isolate.spawn(
-            _bandWorkerEntry,
-            (receivePort.sendPort, filePath, pageIndex, width, bandHeight, assigned, setUpIsolate),
-          ),
+          await Isolate.spawn(_bandWorkerEntry, (
+            receivePort.sendPort,
+            filePath,
+            pageIndex,
+            width,
+            bandHeight,
+            assigned,
+            setUpIsolate,
+          )),
         );
       }
 
@@ -147,21 +171,37 @@ class TiffParallelDecoder {
 }
 
 void _bandWorkerEntry(_WorkerArgs args) {
-  final (mainSendPort, filePath, pageIndex, width, bandHeight, chunks, setUpIsolate) = args;
+  final (
+    mainSendPort,
+    filePath,
+    pageIndex,
+    width,
+    bandHeight,
+    chunks,
+    setUpIsolate,
+  ) = args;
   try {
     setUpIsolate?.call();
-    final document = TiffDecoder.decodeSource(FileByteSource.open(File(filePath)));
+    final document = TiffDecoder.decodeSource(
+      FileByteSource.open(File(filePath)),
+    );
     try {
       final page = document.images[pageIndex];
       final bytesPerRow = width * 4;
       for (final (y, chunkHeight) in chunks) {
-        final chunkRgba = page.decodeRegionRgba8(TiffRegion(x: 0, y: y, width: width, height: chunkHeight));
+        final chunkRgba = page.decodeRegionRgba8(
+          TiffRegion(x: 0, y: y, width: width, height: chunkHeight),
+        );
 
         var rowOffset = 0;
         while (rowOffset < chunkHeight) {
           final remaining = chunkHeight - rowOffset;
           final rows = bandHeight < remaining ? bandHeight : remaining;
-          final band = Uint8List.sublistView(chunkRgba, rowOffset * bytesPerRow, (rowOffset + rows) * bytesPerRow);
+          final band = Uint8List.sublistView(
+            chunkRgba,
+            rowOffset * bytesPerRow,
+            (rowOffset + rows) * bytesPerRow,
+          );
           mainSendPort.send((y + rowOffset, rows, band));
           rowOffset += rows;
         }

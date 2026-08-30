@@ -125,7 +125,9 @@ class _ProgressTracker {
       levelCount: _levelCount,
       stepIndex: stepIndex,
       stepCount: stepCount,
-      fraction: _totalUnits == 0 ? 1.0 : (_completedUnits / _totalUnits).clamp(0.0, 1.0),
+      fraction: _totalUnits == 0
+          ? 1.0
+          : (_completedUnits / _totalUnits).clamp(0.0, 1.0),
     ));
   }
 }
@@ -193,7 +195,8 @@ class TiffDisplayOptimizer {
     final includesBaseLevel = mode != TiffOptimizationMode.pyramidLevelsOnly;
     final buildsSmallerRungs = mode != TiffOptimizationMode.tiledOnly;
 
-    if (mode == TiffOptimizationMode.pyramidLevelsOnly && math.max(baseWidth, baseHeight) <= minPyramidDimension) {
+    if (mode == TiffOptimizationMode.pyramidLevelsOnly &&
+        math.max(baseWidth, baseHeight) <= minPyramidDimension) {
       throw ArgumentError(
         'page is already at or below minPyramidDimension ($minPyramidDimension); '
         'there is no smaller pyramid level to build',
@@ -205,17 +208,29 @@ class TiffDisplayOptimizer {
     // level count upfront (for TiffOptimizeProgress.levelCount) and to
     // weight each phase's progress by the pixels it actually touches (see
     // _ProgressTracker).
-    final fullSequence = buildsSmallerRungs ? _levelDimensions(baseWidth, baseHeight, minPyramidDimension) : [(baseWidth, baseHeight)];
-    final outputLevels = includesBaseLevel ? fullSequence : fullSequence.sublist(1);
+    final fullSequence = buildsSmallerRungs
+        ? _levelDimensions(baseWidth, baseHeight, minPyramidDimension)
+        : [(baseWidth, baseHeight)];
+    final outputLevels = includesBaseLevel
+        ? fullSequence
+        : fullSequence.sublist(1);
 
     final tracker = _ProgressTracker(
       onProgress,
       outputLevels.length,
-      baseWidth * baseHeight + _downsampleUnits(fullSequence) + _encodeUnits(outputLevels, tileSize),
+      baseWidth * baseHeight +
+          _downsampleUnits(fullSequence) +
+          _encodeUnits(outputLevels, tileSize),
     );
 
     var rgba = page.decodeRgba8();
-    tracker.report(stage: TiffOptimizeStage.decoding, level: 0, stepIndex: 1, stepCount: 1, units: baseWidth * baseHeight);
+    tracker.report(
+      stage: TiffOptimizeStage.decoding,
+      level: 0,
+      stepIndex: 1,
+      stepCount: 1,
+      units: baseWidth * baseHeight,
+    );
 
     final specs = <TiffImageSpec>[];
     var width = baseWidth;
@@ -240,7 +255,13 @@ class TiffDisplayOptimizer {
         );
         width = nextWidth;
         height = nextHeight;
-        tracker.report(stage: TiffOptimizeStage.downsampling, level: outputIndex, stepIndex: 1, stepCount: 1, units: sourceUnits);
+        tracker.report(
+          stage: TiffOptimizeStage.downsampling,
+          level: outputIndex,
+          stepIndex: 1,
+          stepCount: 1,
+          units: sourceUnits,
+        );
         specs.add(_tiledRgbSpec(rgba, width, height, tileSize, compression));
         outputIndex++;
       }
@@ -248,13 +269,14 @@ class TiffDisplayOptimizer {
 
     final bytes = TiffEncoder.encode(
       specs,
-      onChunkEncoded: (pageIndex, pageCount, chunkIndex, chunkCount) => tracker.report(
-        stage: TiffOptimizeStage.encoding,
-        level: pageIndex,
-        stepIndex: chunkIndex,
-        stepCount: chunkCount,
-        units: tileSize * tileSize,
-      ),
+      onChunkEncoded: (pageIndex, pageCount, chunkIndex, chunkCount) =>
+          tracker.report(
+            stage: TiffOptimizeStage.encoding,
+            level: pageIndex,
+            stepIndex: chunkIndex,
+            stepCount: chunkCount,
+            units: tileSize * tileSize,
+          ),
     );
     return bytes;
   }
@@ -323,7 +345,8 @@ class TiffDisplayOptimizer {
     // when the base already fits maxDirectDecodePixels on its own.
     var width = math.max(1, baseWidth ~/ 2);
     var height = math.max(1, baseHeight ~/ 2);
-    while (width * height > maxDirectDecodePixels && math.max(width, height) > minPyramidDimension) {
+    while (width * height > maxDirectDecodePixels &&
+        math.max(width, height) > minPyramidDimension) {
       width = math.max(1, width ~/ 2);
       height = math.max(1, height ~/ 2);
     }
@@ -332,7 +355,9 @@ class TiffDisplayOptimizer {
     final tracker = _ProgressTracker(
       onProgress,
       outputLevels.length,
-      baseWidth * baseHeight + _downsampleUnits(outputLevels) + _encodeUnits(outputLevels, tileSize),
+      baseWidth * baseHeight +
+          _downsampleUnits(outputLevels) +
+          _encodeUnits(outputLevels, tileSize),
     );
 
     final rgba = BandedDownsampler.downsample(
@@ -434,7 +459,8 @@ class TiffDisplayOptimizer {
 
     var width = math.max(1, baseWidth ~/ 2);
     var height = math.max(1, baseHeight ~/ 2);
-    while (width * height > maxDirectDecodePixels && math.max(width, height) > minPyramidDimension) {
+    while (width * height > maxDirectDecodePixels &&
+        math.max(width, height) > minPyramidDimension) {
       width = math.max(1, width ~/ 2);
       height = math.max(1, height ~/ 2);
     }
@@ -443,7 +469,9 @@ class TiffDisplayOptimizer {
     final tracker = _ProgressTracker(
       onProgress,
       outputLevels.length,
-      baseWidth * baseHeight + _downsampleUnits(outputLevels) + _encodeUnits(outputLevels, tileSize),
+      baseWidth * baseHeight +
+          _downsampleUnits(outputLevels) +
+          _encodeUnits(outputLevels, tileSize),
     );
 
     final rgba = await BandedDownsampler.downsampleParallel(
@@ -490,7 +518,9 @@ class TiffDisplayOptimizer {
     required _ProgressTracker tracker,
   }) {
     var rgba = firstRungRgba;
-    final specs = <TiffImageSpec>[_tiledRgbSpec(rgba, width, height, tileSize, compression)];
+    final specs = <TiffImageSpec>[
+      _tiledRgbSpec(rgba, width, height, tileSize, compression),
+    ];
     var outputIndex = 1;
 
     while (math.max(width, height) > minPyramidDimension) {
@@ -506,20 +536,27 @@ class TiffDisplayOptimizer {
       );
       width = nextWidth;
       height = nextHeight;
-      tracker.report(stage: TiffOptimizeStage.downsampling, level: outputIndex, stepIndex: 1, stepCount: 1, units: sourceUnits);
+      tracker.report(
+        stage: TiffOptimizeStage.downsampling,
+        level: outputIndex,
+        stepIndex: 1,
+        stepCount: 1,
+        units: sourceUnits,
+      );
       specs.add(_tiledRgbSpec(rgba, width, height, tileSize, compression));
       outputIndex++;
     }
 
     return TiffEncoder.encode(
       specs,
-      onChunkEncoded: (pageIndex, pageCount, chunkIndex, chunkCount) => tracker.report(
-        stage: TiffOptimizeStage.encoding,
-        level: pageIndex,
-        stepIndex: chunkIndex,
-        stepCount: chunkCount,
-        units: tileSize * tileSize,
-      ),
+      onChunkEncoded: (pageIndex, pageCount, chunkIndex, chunkCount) =>
+          tracker.report(
+            stage: TiffOptimizeStage.encoding,
+            level: pageIndex,
+            stepIndex: chunkIndex,
+            stepCount: chunkCount,
+            units: tileSize * tileSize,
+          ),
     );
   }
 
@@ -529,7 +566,11 @@ class TiffDisplayOptimizer {
   /// [optimizeLargeSourcePyramidLevels] can know their output level count
   /// (and weight progress by each level's pixel count) before doing any
   /// actual work.
-  static List<(int, int)> _levelDimensions(int width, int height, int minPyramidDimension) {
+  static List<(int, int)> _levelDimensions(
+    int width,
+    int height,
+    int minPyramidDimension,
+  ) {
     final dims = [(width, height)];
     while (math.max(width, height) > minPyramidDimension) {
       width = math.max(1, width ~/ 2);
@@ -572,7 +613,13 @@ class TiffDisplayOptimizer {
     return units;
   }
 
-  static TiffImageSpec _tiledRgbSpec(Uint8List rgba, int width, int height, int tileSize, int compression) {
+  static TiffImageSpec _tiledRgbSpec(
+    Uint8List rgba,
+    int width,
+    int height,
+    int tileSize,
+    int compression,
+  ) {
     return TiffImageSpec(
       width: width,
       height: height,

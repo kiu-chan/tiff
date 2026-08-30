@@ -80,7 +80,10 @@ class TiffMinimap extends StatelessWidget {
     final baseSize = _baseSize;
     final inverse = Matrix4.copy(transform)..invert();
     final topLeft = MatrixUtils.transformPoint(inverse, Offset.zero);
-    final bottomRight = MatrixUtils.transformPoint(inverse, Offset(viewportSize.width, viewportSize.height));
+    final bottomRight = MatrixUtils.transformPoint(
+      inverse,
+      Offset(viewportSize.width, viewportSize.height),
+    );
     final rect = Rect.fromPoints(topLeft, bottomRight);
     return Rect.fromLTRB(
       rect.left.clamp(0.0, baseSize.width),
@@ -109,9 +112,21 @@ class TiffMinimap extends StatelessWidget {
     return Container(
       width: size.width,
       height: size.height,
-      decoration: BoxDecoration(border: Border.all(color: borderColor), color: backgroundColor),
+      decoration: BoxDecoration(
+        border: Border.all(color: borderColor),
+        color: backgroundColor,
+      ),
       child: overview == null
-          ? Center(child: SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: borderColor)))
+          ? Center(
+              child: SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: borderColor,
+                ),
+              ),
+            )
           : AnimatedBuilder(
               animation: controller,
               builder: (context, _) => FittedBox(
@@ -134,9 +149,20 @@ class TiffMinimap extends StatelessWidget {
                           // smaller than baseWidth x baseHeight) renders as
                           // a near-invisible speck in the middle of this
                           // box rather than filling it.
-                          child: RawImage(image: overview, width: baseSize.width, height: baseSize.height, fit: BoxFit.fill),
+                          child: RawImage(
+                            image: overview,
+                            width: baseSize.width,
+                            height: baseSize.height,
+                            fit: BoxFit.fill,
+                          ),
                         ),
-                        CustomPaint(size: baseSize, painter: _ViewportRectPainter(_visibleImageRect(controller.value), viewportRectColor)),
+                        CustomPaint(
+                          size: baseSize,
+                          painter: _ViewportRectPainter(
+                            _visibleImageRect(controller.value),
+                            viewportRectColor,
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -162,5 +188,6 @@ class _ViewportRectPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _ViewportRectPainter oldDelegate) => oldDelegate.rect != rect || oldDelegate.color != color;
+  bool shouldRepaint(covariant _ViewportRectPainter oldDelegate) =>
+      oldDelegate.rect != rect || oldDelegate.color != color;
 }

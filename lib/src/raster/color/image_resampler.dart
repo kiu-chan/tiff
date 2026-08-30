@@ -65,9 +65,15 @@ class ImageResampler {
         var iB = rowB;
         for (var ox = 0; ox < dstWidth; ox++) {
           dst[o] = (rgba[iA] + rgba[iA + 4] + rgba[iB] + rgba[iB + 4] + 2) >> 2;
-          dst[o + 1] = (rgba[iA + 1] + rgba[iA + 5] + rgba[iB + 1] + rgba[iB + 5] + 2) >> 2;
-          dst[o + 2] = (rgba[iA + 2] + rgba[iA + 6] + rgba[iB + 2] + rgba[iB + 6] + 2) >> 2;
-          dst[o + 3] = (rgba[iA + 3] + rgba[iA + 7] + rgba[iB + 3] + rgba[iB + 7] + 2) >> 2;
+          dst[o + 1] =
+              (rgba[iA + 1] + rgba[iA + 5] + rgba[iB + 1] + rgba[iB + 5] + 2) >>
+              2;
+          dst[o + 2] =
+              (rgba[iA + 2] + rgba[iA + 6] + rgba[iB + 2] + rgba[iB + 6] + 2) >>
+              2;
+          dst[o + 3] =
+              (rgba[iA + 3] + rgba[iA + 7] + rgba[iB + 3] + rgba[iB + 7] + 2) >>
+              2;
           o += 4;
           iA += 8;
           iB += 8;
@@ -80,8 +86,14 @@ class ImageResampler {
     // spans, only its row span changes, so recomputing sx0/sx1 inside the
     // oy loop (once per output row) would redo the same division dstHeight
     // times over for no reason.
-    final sx0 = List<int>.generate(dstWidth, (ox) => (ox * srcWidth) ~/ dstWidth);
-    final sx1 = List<int>.generate(dstWidth, (ox) => _spanEnd(ox, dstWidth, srcWidth, sx0[ox]));
+    final sx0 = List<int>.generate(
+      dstWidth,
+      (ox) => (ox * srcWidth) ~/ dstWidth,
+    );
+    final sx1 = List<int>.generate(
+      dstWidth,
+      (ox) => _spanEnd(ox, dstWidth, srcWidth, sx0[ox]),
+    );
 
     for (var oy = 0; oy < dstHeight; oy++) {
       final sy0 = (oy * srcHeight) ~/ dstHeight;

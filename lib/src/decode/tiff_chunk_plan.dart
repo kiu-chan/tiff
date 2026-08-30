@@ -38,14 +38,19 @@ class TiffChunkPlan {
   /// `x: 0, width: metadata.width`).
   final List<(int y, int height)> chunks;
 
-  const TiffChunkPlan._({required this.chunkHeight, required this.bytesPerChunk, required this.chunks});
+  const TiffChunkPlan._({
+    required this.chunkHeight,
+    required this.bytesPerChunk,
+    required this.chunks,
+  });
 
   /// Raw per-pixel cost of one `decodeRegionRgba8` call: the intermediate
   /// [TiffRasterBuffer.samples] the decode pipeline produces first (built by
   /// `allocateSampleBuffer` as the narrowest typed-data list [bitsPerSample]
   /// allows — see its doc comment) plus the final RGBA8 conversion (4
   /// bytes/pixel), which is briefly alive alongside it.
-  static int _bytesPerPixel(TiffImageMetadata m) => m.samplesPerPixel * _bytesPerSample(m) + 4;
+  static int _bytesPerPixel(TiffImageMetadata m) =>
+      m.samplesPerPixel * _bytesPerSample(m) + 4;
 
   /// Bytes one raw sample actually costs once unpacked into memory — the
   /// same bucketing `allocateSampleBuffer` uses (1 byte up to 8 bits, 2 up
@@ -81,10 +86,18 @@ class TiffChunkPlan {
     int minChunkHeight = 1,
   }) {
     if (maxBytesPerChunk <= 0) {
-      throw ArgumentError.value(maxBytesPerChunk, 'maxBytesPerChunk', 'must be > 0');
+      throw ArgumentError.value(
+        maxBytesPerChunk,
+        'maxBytesPerChunk',
+        'must be > 0',
+      );
     }
     if (minChunkHeight <= 0) {
-      throw ArgumentError.value(minChunkHeight, 'minChunkHeight', 'must be > 0');
+      throw ArgumentError.value(
+        minChunkHeight,
+        'minChunkHeight',
+        'must be > 0',
+      );
     }
 
     final naturalChunk = metadata.isTiled
@@ -103,7 +116,12 @@ class TiffChunkPlan {
       bytesPerChunk: chunkHeight * metadata.width * bytesPerPixel,
       chunks: [
         for (var y = 0; y < metadata.height; y += chunkHeight)
-          (y, chunkHeight < metadata.height - y ? chunkHeight : metadata.height - y),
+          (
+            y,
+            chunkHeight < metadata.height - y
+                ? chunkHeight
+                : metadata.height - y,
+          ),
       ],
     );
   }
@@ -121,7 +139,8 @@ class TiffChunkPlan {
     required int aggregateBudgetBytes,
     required int cpuCount,
   }) {
-    final memoryCap = aggregateBudgetBytes ~/ (bytesPerChunk < 1 ? 1 : bytesPerChunk);
+    final memoryCap =
+        aggregateBudgetBytes ~/ (bytesPerChunk < 1 ? 1 : bytesPerChunk);
     final capped = [memoryCap, cpuCount].reduce((a, b) => a < b ? a : b);
     return capped < 1 ? 1 : capped;
   }

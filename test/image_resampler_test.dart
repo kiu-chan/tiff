@@ -11,7 +11,13 @@ void main() {
         0, 100, 0, 255, 0, 0, 100, 255, //
       ]);
 
-      final dst = ImageResampler.downsampleRgba8(src, srcWidth: 2, srcHeight: 2, dstWidth: 1, dstHeight: 1);
+      final dst = ImageResampler.downsampleRgba8(
+        src,
+        srcWidth: 2,
+        srcHeight: 2,
+        dstWidth: 1,
+        dstHeight: 1,
+      );
 
       expect(dst, [25, 25, 25, 255]);
     });
@@ -40,7 +46,13 @@ void main() {
         }
       }
 
-      final dst = ImageResampler.downsampleRgba8(src, srcWidth: 4, srcHeight: 4, dstWidth: 2, dstHeight: 2);
+      final dst = ImageResampler.downsampleRgba8(
+        src,
+        srcWidth: 4,
+        srcHeight: 4,
+        dstWidth: 2,
+        dstHeight: 2,
+      );
 
       expect(dst, [
         10, 20, 30, 255, //
@@ -52,28 +64,49 @@ void main() {
 
     test('returns the input unchanged when dst size equals src size', () {
       final src = Uint8List.fromList([1, 2, 3, 4, 5, 6, 7, 8]);
-      final dst = ImageResampler.downsampleRgba8(src, srcWidth: 2, srcHeight: 1, dstWidth: 2, dstHeight: 1);
+      final dst = ImageResampler.downsampleRgba8(
+        src,
+        srcWidth: 2,
+        srcHeight: 1,
+        dstWidth: 2,
+        dstHeight: 1,
+      );
       expect(dst, same(src));
     });
 
-    test('covers every source pixel exactly once across a non-integer ratio', () {
-      // 5x1 -> 2x1: spans of 2/3 pixels, exercising the rounding guard in
-      // _spanEnd rather than a clean power-of-two halving.
-      final src = Uint8List.fromList([
-        10, 0, 0, 0, 20, 0, 0, 0, 30, 0, 0, 0, 40, 0, 0, 0, 50, 0, 0, 0, //
-      ]);
-      final dst = ImageResampler.downsampleRgba8(src, srcWidth: 5, srcHeight: 1, dstWidth: 2, dstHeight: 1);
+    test(
+      'covers every source pixel exactly once across a non-integer ratio',
+      () {
+        // 5x1 -> 2x1: spans of 2/3 pixels, exercising the rounding guard in
+        // _spanEnd rather than a clean power-of-two halving.
+        final src = Uint8List.fromList([
+          10, 0, 0, 0, 20, 0, 0, 0, 30, 0, 0, 0, 40, 0, 0, 0, 50, 0, 0, 0, //
+        ]);
+        final dst = ImageResampler.downsampleRgba8(
+          src,
+          srcWidth: 5,
+          srcHeight: 1,
+          dstWidth: 2,
+          dstHeight: 1,
+        );
 
-      // First output pixel covers source x in [0, 2) -> avg(10, 20) = 15;
-      // second covers x in [2, 5) -> avg(30, 40, 50) = 40.
-      expect(dst[0], 15);
-      expect(dst[4], 40);
-    });
+        // First output pixel covers source x in [0, 2) -> avg(10, 20) = 15;
+        // second covers x in [2, 5) -> avg(30, 40, 50) = 40.
+        expect(dst[0], 15);
+        expect(dst[4], 40);
+      },
+    );
 
     test('rejects an upsample request', () {
       final src = Uint8List(2 * 2 * 4);
       expect(
-        () => ImageResampler.downsampleRgba8(src, srcWidth: 2, srcHeight: 2, dstWidth: 4, dstHeight: 4),
+        () => ImageResampler.downsampleRgba8(
+          src,
+          srcWidth: 2,
+          srcHeight: 2,
+          dstWidth: 4,
+          dstHeight: 4,
+        ),
         throwsArgumentError,
       );
     });
@@ -81,7 +114,13 @@ void main() {
     test('rejects a source buffer of the wrong length', () {
       final src = Uint8List(3 * 4); // too short for 2x2
       expect(
-        () => ImageResampler.downsampleRgba8(src, srcWidth: 2, srcHeight: 2, dstWidth: 1, dstHeight: 1),
+        () => ImageResampler.downsampleRgba8(
+          src,
+          srcWidth: 2,
+          srcHeight: 2,
+          dstWidth: 1,
+          dstHeight: 1,
+        ),
         throwsA(isA<TiffException>()),
       );
     });

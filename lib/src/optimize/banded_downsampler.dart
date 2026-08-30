@@ -63,7 +63,9 @@ class BandedDownsampler {
 
     final dst = Uint8List(dstWidth * dstHeight * 4);
     if (dstWidth == srcWidth && dstHeight == srcHeight) {
-      final rgba = page.decodeRegionRgba8(TiffRegion(x: 0, y: 0, width: srcWidth, height: srcHeight));
+      final rgba = page.decodeRegionRgba8(
+        TiffRegion(x: 0, y: 0, width: srcWidth, height: srcHeight),
+      );
       dst.setAll(0, rgba);
       onBand?.call(1, 1, srcHeight);
       return dst;
@@ -74,8 +76,14 @@ class BandedDownsampler {
 
     // Precomputed once — every output row's source column span never
     // changes band to band, only its row span does.
-    final sx0 = List<int>.generate(dstWidth, (ox) => _spanStart(ox, dstWidth, srcWidth));
-    final sx1 = List<int>.generate(dstWidth, (ox) => _spanEnd(ox, dstWidth, srcWidth, sx0[ox]));
+    final sx0 = List<int>.generate(
+      dstWidth,
+      (ox) => _spanStart(ox, dstWidth, srcWidth),
+    );
+    final sx1 = List<int>.generate(
+      dstWidth,
+      (ox) => _spanEnd(ox, dstWidth, srcWidth, sx0[ox]),
+    );
 
     // Planned upfront (cheap — arithmetic only, no decoding) so onBand can
     // report a real "band N of M" figure from the very first callback,
@@ -86,7 +94,12 @@ class BandedDownsampler {
     for (var b = 0; b < plan.length; b++) {
       final (oy, oyEnd, bandSyStart, bandSyEnd) = plan[b];
       final band = page.decodeRegionRgba8(
-        TiffRegion(x: 0, y: bandSyStart, width: srcWidth, height: bandSyEnd - bandSyStart),
+        TiffRegion(
+          x: 0,
+          y: bandSyStart,
+          width: srcWidth,
+          height: bandSyEnd - bandSyStart,
+        ),
       );
       _foldBand(
         band: band,
@@ -162,7 +175,11 @@ class BandedDownsampler {
     try {
       final document = TiffDecoder.decodeSource(metadataSource);
       if (pageIndex < 0 || pageIndex >= document.images.length) {
-        throw ArgumentError.value(pageIndex, 'pageIndex', 'out of range (page count: ${document.images.length})');
+        throw ArgumentError.value(
+          pageIndex,
+          'pageIndex',
+          'out of range (page count: ${document.images.length})',
+        );
       }
       final metadata = document.images[pageIndex].metadata;
       srcWidth = metadata.width;
@@ -181,9 +198,13 @@ class BandedDownsampler {
     if (dstWidth == srcWidth && dstHeight == srcHeight) {
       // No smaller-than-source rung to spread across workers — one plain
       // decode beats the overhead of spawning any isolate for it.
-      final document = TiffDecoder.decodeSource(FileByteSource.open(File(filePath)));
+      final document = TiffDecoder.decodeSource(
+        FileByteSource.open(File(filePath)),
+      );
       try {
-        final rgba = document.images[pageIndex].decodeRegionRgba8(TiffRegion(x: 0, y: 0, width: srcWidth, height: srcHeight));
+        final rgba = document.images[pageIndex].decodeRegionRgba8(
+          TiffRegion(x: 0, y: 0, width: srcWidth, height: srcHeight),
+        );
         dst.setAll(0, rgba);
         onBand?.call(1, 1, srcHeight);
         return dst;
@@ -194,11 +215,19 @@ class BandedDownsampler {
 
     final bytesPerSrcRow = srcWidth * 4;
     final maxRowsPerBand = math.max(1, maxBandBytes ~/ bytesPerSrcRow);
-    final sx0 = List<int>.generate(dstWidth, (ox) => _spanStart(ox, dstWidth, srcWidth));
-    final sx1 = List<int>.generate(dstWidth, (ox) => _spanEnd(ox, dstWidth, srcWidth, sx0[ox]));
+    final sx0 = List<int>.generate(
+      dstWidth,
+      (ox) => _spanStart(ox, dstWidth, srcWidth),
+    );
+    final sx1 = List<int>.generate(
+      dstWidth,
+      (ox) => _spanEnd(ox, dstWidth, srcWidth, sx0[ox]),
+    );
     final plan = _planBands(dstHeight, srcHeight, maxRowsPerBand);
 
-    final effectiveWorkerCount = workerCount < plan.length ? workerCount : plan.length;
+    final effectiveWorkerCount = workerCount < plan.length
+        ? workerCount
+        : plan.length;
     final bandsByWorker = List.generate(effectiveWorkerCount, (_) => <int>[]);
     for (var i = 0; i < plan.length; i++) {
       bandsByWorker[i % effectiveWorkerCount].add(i);
@@ -210,12 +239,18 @@ class BandedDownsampler {
     var completedBands = 0;
     try {
       for (final planIndices in bandsByWorker) {
-        final assigned = [for (final i in planIndices) (i, plan[i].$3, plan[i].$4 - plan[i].$3)];
+        final assigned = [
+          for (final i in planIndices) (i, plan[i].$3, plan[i].$4 - plan[i].$3),
+        ];
         isolates.add(
-          await Isolate.spawn(
-            _bandDecodeWorkerEntry,
-            (receivePort.sendPort, filePath, pageIndex, srcWidth, assigned, setUpIsolate),
-          ),
+          await Isolate.spawn(_bandDecodeWorkerEntry, (
+            receivePort.sendPort,
+            filePath,
+            pageIndex,
+            srcWidth,
+            assigned,
+            setUpIsolate,
+          )),
         );
       }
 
@@ -279,7 +314,9 @@ class BandedDownsampler {
     required Uint8List dst,
   }) {
     if (band.length != (bandSyEnd - bandSyStart) * srcWidth * 4) {
-      throw TiffException('decodeRegionRgba8 returned an unexpected byte count for a banded downsample');
+      throw TiffException(
+        'decodeRegionRgba8 returned an unexpected byte count for a banded downsample',
+      );
     }
     for (var y = oy; y < oyEnd; y++) {
       final ySpanStart = _spanStart(y, dstHeight, srcHeight);
@@ -319,7 +356,11 @@ class BandedDownsampler {
   /// the total band count (for [onBand]) before decoding the first one.
   /// Each tuple is `(oy, oyEnd, bandSyStart, bandSyEnd)`: the output-row
   /// range this band covers, and the source-row range to decode for it.
-  static List<(int, int, int, int)> _planBands(int dstHeight, int srcHeight, int maxRowsPerBand) {
+  static List<(int, int, int, int)> _planBands(
+    int dstHeight,
+    int srcHeight,
+    int maxRowsPerBand,
+  ) {
     final plan = <(int, int, int, int)>[];
     var oy = 0;
     while (oy < dstHeight) {
@@ -332,7 +373,12 @@ class BandedDownsampler {
       // unreasonably tight budget or huge downsample ratio shouldn't make
       // this loop fail to progress).
       while (oyEnd < dstHeight) {
-        final candidateEnd = _spanEnd(oyEnd, dstHeight, srcHeight, _spanStart(oyEnd, dstHeight, srcHeight));
+        final candidateEnd = _spanEnd(
+          oyEnd,
+          dstHeight,
+          srcHeight,
+          _spanStart(oyEnd, dstHeight, srcHeight),
+        );
         if (oyEnd > oy && candidateEnd - bandSyStart > maxRowsPerBand) break;
         bandSyEnd = candidateEnd;
         oyEnd++;
@@ -345,7 +391,8 @@ class BandedDownsampler {
 
   /// The inclusive start of the source span output pixel [out] (out of
   /// [dstExtent] total) covers along one axis of [srcExtent].
-  static int _spanStart(int out, int dstExtent, int srcExtent) => (out * srcExtent) ~/ dstExtent;
+  static int _spanStart(int out, int dstExtent, int srcExtent) =>
+      (out * srcExtent) ~/ dstExtent;
 
   /// The exclusive end of that same span — identical formula to
   /// [ImageResampler.downsampleRgba8]'s own `_spanEnd`, kept in lockstep so
@@ -363,8 +410,14 @@ class BandedDownsampler {
 /// `(planIndex, sourceRowStart, sourceRowCount)` triples. [setUpIsolate]
 /// must be a static or top-level function reference (a closure over local
 /// state can't cross the boundary at all).
-typedef _ParallelWorkerArgs =
-    (SendPort, String filePath, int pageIndex, int srcWidth, List<(int, int, int)> assigned, void Function()? setUpIsolate);
+typedef _ParallelWorkerArgs = (
+  SendPort,
+  String filePath,
+  int pageIndex,
+  int srcWidth,
+  List<(int, int, int)> assigned,
+  void Function()? setUpIsolate,
+);
 
 /// Entry point for each worker isolate [BandedDownsampler.downsampleParallel]
 /// spawns: opens its own handle on `filePath` (a decoded [TiffImage] can't
@@ -376,14 +429,19 @@ typedef _ParallelWorkerArgs =
 /// finishes one, rather than waiting on this worker's *entire* share.
 /// Sends a final `true` on success or a `String` on failure.
 void _bandDecodeWorkerEntry(_ParallelWorkerArgs args) {
-  final (sendPort, filePath, pageIndex, srcWidth, assigned, setUpIsolate) = args;
+  final (sendPort, filePath, pageIndex, srcWidth, assigned, setUpIsolate) =
+      args;
   try {
     setUpIsolate?.call();
-    final document = TiffDecoder.decodeSource(FileByteSource.open(File(filePath)));
+    final document = TiffDecoder.decodeSource(
+      FileByteSource.open(File(filePath)),
+    );
     try {
       final page = document.images[pageIndex];
       for (final (planIndex, y, height) in assigned) {
-        final band = page.decodeRegionRgba8(TiffRegion(x: 0, y: y, width: srcWidth, height: height));
+        final band = page.decodeRegionRgba8(
+          TiffRegion(x: 0, y: y, width: srcWidth, height: height),
+        );
         sendPort.send((planIndex, band));
       }
       sendPort.send(true);

@@ -104,15 +104,28 @@ class TiffAutoDecodeBudget {
     if (mem == null) {
       rawAggregateBytes = fallbackAggregateBytes;
     } else {
-      final reserve = math.max(reserveBytes, (mem.totalBytes * reserveFraction).round());
+      final reserve = math.max(
+        reserveBytes,
+        (mem.totalBytes * reserveFraction).round(),
+      );
       final usable = math.max(0, mem.availableBytes - reserve);
-      rawAggregateBytes = (usable * systemMemoryFraction / doubleBufferSafetyFactor).round();
+      rawAggregateBytes =
+          (usable * systemMemoryFraction / doubleBufferSafetyFactor).round();
     }
-    final aggregateBudgetBytes = rawAggregateBytes.clamp(minAggregateBytes, maxAggregateBytes);
+    final aggregateBudgetBytes = rawAggregateBytes.clamp(
+      minAggregateBytes,
+      maxAggregateBytes,
+    );
     final cpuCount = math.max(1, Platform.numberOfProcessors - reservedCores);
 
-    final perChunkBudgetBytes = math.max(minBytesPerChunk, aggregateBudgetBytes ~/ cpuCount);
-    final chunkPlan = TiffChunkPlan.forBudget(metadata, maxBytesPerChunk: perChunkBudgetBytes);
+    final perChunkBudgetBytes = math.max(
+      minBytesPerChunk,
+      aggregateBudgetBytes ~/ cpuCount,
+    );
+    final chunkPlan = TiffChunkPlan.forBudget(
+      metadata,
+      maxBytesPerChunk: perChunkBudgetBytes,
+    );
     final workerCount = TiffChunkPlan.recommendedWorkerCount(
       bytesPerChunk: chunkPlan.bytesPerChunk,
       aggregateBudgetBytes: aggregateBudgetBytes,

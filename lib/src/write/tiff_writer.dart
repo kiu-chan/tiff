@@ -32,7 +32,8 @@ class TiffWriter {
     required List<TiffImageSpec> pages,
     bool? forceBigTiff,
     Endian endian = Endian.little,
-    void Function(int pageIndex, int pageCount, int chunkIndex, int chunkCount)? onChunkEncoded,
+    void Function(int pageIndex, int pageCount, int chunkIndex, int chunkCount)?
+    onChunkEncoded,
   }) {
     if (pages.isEmpty) {
       throw const TiffException('Cannot write a TIFF file with no pages');
@@ -41,7 +42,8 @@ class TiffWriter {
     final pageChunks = <List<Uint8List>>[];
     for (var p = 0; p < pages.length; p++) {
       final spec = pages[p];
-      void onChunk(int chunkIndex, int chunkCount) => onChunkEncoded?.call(p, pages.length, chunkIndex, chunkCount);
+      void onChunk(int chunkIndex, int chunkCount) =>
+          onChunkEncoded?.call(p, pages.length, chunkIndex, chunkCount);
       pageChunks.add(
         spec.isTiled
             ? TileWriter.buildChunks(spec, endian, onChunkEncoded: onChunk)

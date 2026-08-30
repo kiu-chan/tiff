@@ -61,7 +61,10 @@ class ChunkDecoder {
       );
     }
 
-    final samples = allocateSampleBuffer(bitsPerSample, columns * rows * samplesPerPixel);
+    final samples = allocateSampleBuffer(
+      bitsPerSample,
+      columns * rows * samplesPerPixel,
+    );
     for (var r = 0; r < rows; r++) {
       final rowStart = r * bytesPerRow;
       final rowBytes = Uint8List.sublistView(
@@ -170,7 +173,9 @@ class ChunkDecoder {
         i += 1;
         continue;
       }
-      if (marker == 0xD8 || marker == 0x01 || (marker >= 0xD0 && marker <= 0xD7)) {
+      if (marker == 0xD8 ||
+          marker == 0x01 ||
+          (marker >= 0xD0 && marker <= 0xD7)) {
         // SOI, TEM, or a restart marker — standalone, no length field.
         i += 2;
         continue;
@@ -250,8 +255,7 @@ class ChunkDecoder {
     Uint8List? jpegTables,
   ) {
     final bodies = <Uint8List>[
-      if (jpegTables != null && jpegTables.isNotEmpty)
-        _stripSoiEoi(jpegTables),
+      if (jpegTables != null && jpegTables.isNotEmpty) _stripSoiEoi(jpegTables),
       for (final chunk in chunks) _stripSoiEoi(chunk),
     ];
 
