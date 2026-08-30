@@ -1,6 +1,6 @@
 name: tiff
-description: "Dart library for reading and writing TIFF and BigTIFF image files — tags, IFDs, strips/tiles, compression, GeoTIFF/EXIF metadata, and an optional package:image bridge."
-version: 0.4.0
+description: "Dart library for reading and writing TIFF and BigTIFF image files — tags, IFDs, strips/tiles, compression, GeoTIFF/EXIF metadata, an optional package:image bridge, and an optional Flutter minimap widget."
+version: 0.5.0
 homepage: https://github.com/kiu-chan/tiff
 repository: https://github.com/kiu-chan/tiff
 issue_tracker: https://github.com/kiu-chan/tiff/issues
@@ -17,7 +17,11 @@ environment:
 
 dev_dependencies:
   flutter_lints: ^6.0.0
+  flutter_test:
+    sdk: flutter
   test: ^1.28.0
 dependencies:
   archive: ^4.2.0
   image: ^4.9.2
+  flutter:
+    sdk: flutter

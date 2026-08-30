@@ -1,3 +1,20 @@
+## 0.5.0
+
+- New `package:tiff/tiff_minimap.dart` entry point, adding a `TiffMinimap`
+  widget: a ready-made overview-with-viewport-rectangle for panning/zooming
+  a large TIFF page (tap or drag it to jump the main viewer there). It's
+  decode-agnostic — hand it whatever already-decoded `ui.Image` overview
+  bitmap and native page dimensions your own tiled/banded/isolate-based
+  loading strategy already produces, and it handles the layout, the
+  viewport-rect overlay, and tap/drag navigation. This is the only library
+  entry point that imports `package:flutter` — every other one
+  (`tiff.dart`, `tiff_io.dart`, `tiff_image_adapter.dart`) stays usable from
+  plain Dart with no Flutter SDK involved. Adding `flutter` as a
+  `package:tiff` dependency (needed so this entry point resolves at all,
+  even for a consumer that never imports it) means a plain-Dart project
+  (no Flutter SDK available) can no longer depend on `package:tiff` —
+  a breaking change for that case.
+
 ## 0.4.0
 
 - `TiffDisplayOptimizer.optimize`'s new `TiffOptimizationMode.pyramidLevelsOnly`

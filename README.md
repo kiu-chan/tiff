@@ -40,6 +40,9 @@ kilobytes to multi-gigabyte BigTIFF rasters.
 - GeoTIFF, EXIF, and GPS metadata parsing
 - An optional `package:image` bridge (`package:tiff/tiff_image_adapter.dart`)
   for converting to/from `image.Image` and for decoding JPEG-compressed pages
+- An optional Flutter minimap widget (`package:tiff/tiff_minimap.dart`,
+  `TiffMinimap`) — a decode-agnostic overview-with-viewport-rectangle for
+  panning/zooming a large page
 
 ## Limitations
 
@@ -62,7 +65,7 @@ kilobytes to multi-gigabyte BigTIFF rasters.
 
 ```yaml
 dependencies:
-  tiff: ^0.2.0
+  tiff: ^0.5.0
 ```
 
 ## Usage
@@ -245,6 +248,38 @@ mechanism, so `dart pub get` fetches it for every consumer regardless of
 whether `tiff_image_adapter.dart` is ever imported. "Optional" here means
 your own code never has to touch `package:image`'s API (or pay for importing
 it) unless you choose to.
+
+### Optional: Flutter minimap widget
+
+Every other entry point in this package works from plain Dart — no Flutter
+SDK needed. Import `package:tiff/tiff_minimap.dart` as well, from a Flutter
+app, for `TiffMinimap`: a ready-made overview-with-viewport-rectangle for
+panning/zooming a large page, driven by the same `TransformationController`
+an `InteractiveViewer` uses. It's decode-agnostic — hand it whatever
+already-decoded `ui.Image` overview bitmap and native page dimensions your
+own tiled/banded/isolate-based loading strategy already produces:
+
+```dart
+import 'package:flutter/material.dart';
+import 'package:tiff/tiff_minimap.dart';
+
+Widget buildMinimap(ui.Image? overview, int baseWidth, int baseHeight, TransformationController controller, Size viewportSize) {
+  return TiffMinimap(
+    overview: overview, // null shows a small placeholder spinner
+    baseWidth: baseWidth,
+    baseHeight: baseHeight,
+    controller: controller,
+    viewportSize: viewportSize,
+  );
+}
+```
+
+Note: unlike `package:image`, adding `package:tiff/tiff_minimap.dart`'s
+`flutter` dependency to this package's own `pubspec.yaml` means a plain-Dart
+project (no Flutter SDK) can no longer depend on `package:tiff` at all, even
+if it never imports this entry point — Flutter SDK dependencies can't be
+made conditional the way a large but ordinary package like `package:image`
+can.
 
 ## Example app
 
