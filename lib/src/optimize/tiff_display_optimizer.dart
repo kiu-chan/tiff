@@ -40,8 +40,9 @@ enum TiffOptimizationMode {
   /// derive these rungs from — there's no way to downsample without it —
   /// this only changes what gets *encoded*.
   /// Throws [ArgumentError] if the page's longest side is already at or
-  /// below `minPyramidDimension`, since there would be no smaller rung to
-  /// build.
+  /// below `minPyramidDimension` (or, if `levelCount` was given instead, if
+  /// the page is too small to produce that many smaller rungs), since there
+  /// would be no smaller rung to build.
   pyramidLevelsOnly,
 }
 
@@ -160,7 +161,22 @@ class TiffDisplayOptimizer {
   ///   [TiffOptimizationMode.pyramidLevelsOnly], rungs keep halving until
   ///   the longest side is at or below this; the smallest rung is always
   ///   kept even if that overshoots it. Ignored with
-  ///   [TiffOptimizationMode.tiledOnly].
+  ///   [TiffOptimizationMode.tiledOnly], and superseded by [levelCount]
+  ///   whenever that's given instead.
+  /// - [levelCount]: build exactly this many pyramid rungs instead of
+  ///   deriving the count from [minPyramidDimension] — for
+  ///   [TiffOptimizationMode.tiledPyramid] this includes the base
+  ///   resolution itself; for [TiffOptimizationMode.pyramidLevelsOnly] it
+  ///   counts only the smaller rungs (never the base, which that mode
+  ///   never re-encodes) — either way, the same number
+  ///   [TiffOptimizeProgress.levelCount] ends up reporting. Leave unset
+  ///   (the default, `null`) to keep halving down to [minPyramidDimension]
+  ///   instead, which already stops at a size small enough to display
+  ///   smoothly without further downsampling at read time — the right
+  ///   choice for most callers. Ignored with [TiffOptimizationMode.tiledOnly].
+  ///   Throws [ArgumentError] if it isn't `> 0`, or (with
+  ///   [TiffOptimizationMode.pyramidLevelsOnly]) if it's small enough that
+  ///   there'd be no smaller rung left to build.
   /// - [compression]: a [TiffImageSpec.compression] tag value; the default
   ///   (8, Deflate/ZIP) is lossless and needs no extra setup. This package
   ///   can't write JPEG (see the README's Limitations), the usual choice
@@ -180,6 +196,7 @@ class TiffDisplayOptimizer {
     TiffOptimizationMode mode = TiffOptimizationMode.tiledPyramid,
     int tileSize = 512,
     int minPyramidDimension = 512,
+    int? levelCount,
     int compression = 8,
     void Function(TiffOptimizeProgress)? onProgress,
   }) {
@@ -189,28 +206,41 @@ class TiffDisplayOptimizer {
     if (minPyramidDimension <= 0) {
       throw ArgumentError('minPyramidDimension must be > 0');
     }
+    if (levelCount != null && levelCount <= 0) {
+      throw ArgumentError.value(levelCount, 'levelCount', 'must be > 0');
+    }
 
     final baseWidth = page.metadata.width;
     final baseHeight = page.metadata.height;
     final includesBaseLevel = mode != TiffOptimizationMode.pyramidLevelsOnly;
     final buildsSmallerRungs = mode != TiffOptimizationMode.tiledOnly;
 
+    // The full base -> ... -> minPyramidDimension (or -> levelCount rungs)
+    // halving sequence, derived purely from dimensions (no decoding yet) —
+    // both to know the output level count upfront (for
+    // TiffOptimizeProgress.levelCount) and to weight each phase's progress
+    // by the pixels it actually touches (see _ProgressTracker).
+    final fullSequence = buildsSmallerRungs
+        ? (levelCount != null
+              ? _levelDimensionsForCount(
+                  baseWidth,
+                  baseHeight,
+                  includesBaseLevel ? levelCount : levelCount + 1,
+                )
+              : _levelDimensions(baseWidth, baseHeight, minPyramidDimension))
+        : [(baseWidth, baseHeight)];
+
     if (mode == TiffOptimizationMode.pyramidLevelsOnly &&
-        math.max(baseWidth, baseHeight) <= minPyramidDimension) {
+        fullSequence.length <= 1) {
       throw ArgumentError(
-        'page is already at or below minPyramidDimension ($minPyramidDimension); '
-        'there is no smaller pyramid level to build',
+        levelCount != null
+            ? 'levelCount ($levelCount) leaves no smaller pyramid level to '
+                  'build for a page this small'
+            : 'page is already at or below minPyramidDimension ($minPyramidDimension); '
+                  'there is no smaller pyramid level to build',
       );
     }
 
-    // The full base -> ... -> minPyramidDimension halving sequence, derived
-    // purely from dimensions (no decoding yet) — both to know the output
-    // level count upfront (for TiffOptimizeProgress.levelCount) and to
-    // weight each phase's progress by the pixels it actually touches (see
-    // _ProgressTracker).
-    final fullSequence = buildsSmallerRungs
-        ? _levelDimensions(baseWidth, baseHeight, minPyramidDimension)
-        : [(baseWidth, baseHeight)];
     final outputLevels = includesBaseLevel
         ? fullSequence
         : fullSequence.sublist(1);
@@ -242,9 +272,8 @@ class TiffDisplayOptimizer {
     }
 
     if (buildsSmallerRungs) {
-      while (math.max(width, height) > minPyramidDimension) {
-        final nextWidth = math.max(1, width ~/ 2);
-        final nextHeight = math.max(1, height ~/ 2);
+      for (var i = 1; i < fullSequence.length; i++) {
+        final (nextWidth, nextHeight) = fullSequence[i];
         final sourceUnits = width * height;
         rgba = ImageResampler.downsampleRgba8(
           rgba,
@@ -304,15 +333,19 @@ class TiffDisplayOptimizer {
   /// `pyramidLevelsOnly` mode would have done directly.
   ///
   /// See [optimize] for what [tileSize], [minPyramidDimension],
-  /// [compression], and [onProgress] each do — identical here. Throws
-  /// [ArgumentError] under the same conditions `pyramidLevelsOnly` does
-  /// (invalid [tileSize]/[minPyramidDimension], or [page] already at or
-  /// below [minPyramidDimension]), plus if [maxDirectDecodePixels] or
-  /// [maxBandBytes] isn't positive.
+  /// [levelCount], [compression], and [onProgress] each do — identical
+  /// here, [levelCount] included: it counts only the smaller rungs this
+  /// mode produces (never the base, which is never re-encoded), the same
+  /// as [TiffOptimizationMode.pyramidLevelsOnly] does for [optimize].
+  /// Throws [ArgumentError] under the same conditions `pyramidLevelsOnly`
+  /// does (invalid [tileSize]/[minPyramidDimension]/[levelCount], or
+  /// [page] too small to produce even one smaller rung), plus if
+  /// [maxDirectDecodePixels] or [maxBandBytes] isn't positive.
   static Uint8List optimizeLargeSourcePyramidLevels(
     TiffImage page, {
     int tileSize = 512,
     int minPyramidDimension = 512,
+    int? levelCount,
     int compression = 8,
     int maxDirectDecodePixels = 64 * 1000 * 1000,
     int maxBandBytes = 128 * 1024 * 1024,
@@ -324,6 +357,9 @@ class TiffDisplayOptimizer {
     if (minPyramidDimension <= 0) {
       throw ArgumentError('minPyramidDimension must be > 0');
     }
+    if (levelCount != null && levelCount <= 0) {
+      throw ArgumentError.value(levelCount, 'levelCount', 'must be > 0');
+    }
     if (maxDirectDecodePixels <= 0) {
       throw ArgumentError('maxDirectDecodePixels must be > 0');
     }
@@ -333,25 +369,39 @@ class TiffDisplayOptimizer {
 
     final baseWidth = page.metadata.width;
     final baseHeight = page.metadata.height;
-    if (math.max(baseWidth, baseHeight) <= minPyramidDimension) {
+
+    // The full base -> ... -> minPyramidDimension (or -> levelCount + 1
+    // rungs, to also count the true base at index 0 below) halving
+    // sequence — pyramidLevelsOnly semantics never re-encode the base
+    // itself, but it's still index 0 here since every rung after it is
+    // derived by halving the one before.
+    final fullSequence = levelCount != null
+        ? _levelDimensionsForCount(baseWidth, baseHeight, levelCount + 1)
+        : _levelDimensions(baseWidth, baseHeight, minPyramidDimension);
+    if (fullSequence.length <= 1) {
       throw ArgumentError(
-        'page is already at or below minPyramidDimension ($minPyramidDimension); '
-        'there is no smaller pyramid level to build',
+        levelCount != null
+            ? 'levelCount ($levelCount) leaves no smaller pyramid level to '
+                  'build for a page this small'
+            : 'page is already at or below minPyramidDimension ($minPyramidDimension); '
+                  'there is no smaller pyramid level to build',
       );
     }
 
-    // Always halve at least once from the true base — pyramidLevelsOnly
-    // semantics never include the base resolution itself as a rung, even
-    // when the base already fits maxDirectDecodePixels on its own.
-    var width = math.max(1, baseWidth ~/ 2);
-    var height = math.max(1, baseHeight ~/ 2);
-    while (width * height > maxDirectDecodePixels &&
-        math.max(width, height) > minPyramidDimension) {
-      width = math.max(1, width ~/ 2);
-      height = math.max(1, height ~/ 2);
+    // The first rung actually decoded straight from the source: the first
+    // one in fullSequence (after the true base at index 0, never
+    // re-encoded here) small enough to fit maxDirectDecodePixels, or the
+    // smallest one available if none do — every rung after it is derived
+    // from the last by the same in-memory halving [optimize] itself uses.
+    var firstRungIndex = 1;
+    while (firstRungIndex < fullSequence.length - 1 &&
+        fullSequence[firstRungIndex].$1 * fullSequence[firstRungIndex].$2 >
+            maxDirectDecodePixels) {
+      firstRungIndex++;
     }
+    final (width, height) = fullSequence[firstRungIndex];
+    final outputLevels = fullSequence.sublist(firstRungIndex);
 
-    final outputLevels = _levelDimensions(width, height, minPyramidDimension);
     final tracker = _ProgressTracker(
       onProgress,
       outputLevels.length,
@@ -377,7 +427,7 @@ class TiffDisplayOptimizer {
       firstRungRgba: rgba,
       width: width,
       height: height,
-      minPyramidDimension: minPyramidDimension,
+      laterLevels: outputLevels.sublist(1),
       tileSize: tileSize,
       compression: compression,
       tracker: tracker,
@@ -420,13 +470,15 @@ class TiffDisplayOptimizer {
   /// one (e.g. JPEG-compressed: pass `TiffImageAdapter.enableJpegSupport`).
   ///
   /// See [optimizeLargeSourcePyramidLevels] for what every other parameter
-  /// does and which conditions throw [ArgumentError] — identical here.
+  /// (including [levelCount]) does and which conditions throw
+  /// [ArgumentError] — identical here.
   static Future<Uint8List> optimizeLargeSourcePyramidLevelsParallel(
     TiffImage page,
     String filePath, {
     int pageIndex = 0,
     int tileSize = 512,
     int minPyramidDimension = 512,
+    int? levelCount,
     int compression = 8,
     int maxDirectDecodePixels = 64 * 1000 * 1000,
     int? maxBandBytes,
@@ -440,6 +492,9 @@ class TiffDisplayOptimizer {
     if (minPyramidDimension <= 0) {
       throw ArgumentError('minPyramidDimension must be > 0');
     }
+    if (levelCount != null && levelCount <= 0) {
+      throw ArgumentError.value(levelCount, 'levelCount', 'must be > 0');
+    }
     if (maxDirectDecodePixels <= 0) {
       throw ArgumentError('maxDirectDecodePixels must be > 0');
     }
@@ -452,22 +507,29 @@ class TiffDisplayOptimizer {
 
     final baseWidth = page.metadata.width;
     final baseHeight = page.metadata.height;
-    if (math.max(baseWidth, baseHeight) <= minPyramidDimension) {
+
+    final fullSequence = levelCount != null
+        ? _levelDimensionsForCount(baseWidth, baseHeight, levelCount + 1)
+        : _levelDimensions(baseWidth, baseHeight, minPyramidDimension);
+    if (fullSequence.length <= 1) {
       throw ArgumentError(
-        'page is already at or below minPyramidDimension ($minPyramidDimension); '
-        'there is no smaller pyramid level to build',
+        levelCount != null
+            ? 'levelCount ($levelCount) leaves no smaller pyramid level to '
+                  'build for a page this small'
+            : 'page is already at or below minPyramidDimension ($minPyramidDimension); '
+                  'there is no smaller pyramid level to build',
       );
     }
 
-    var width = math.max(1, baseWidth ~/ 2);
-    var height = math.max(1, baseHeight ~/ 2);
-    while (width * height > maxDirectDecodePixels &&
-        math.max(width, height) > minPyramidDimension) {
-      width = math.max(1, width ~/ 2);
-      height = math.max(1, height ~/ 2);
+    var firstRungIndex = 1;
+    while (firstRungIndex < fullSequence.length - 1 &&
+        fullSequence[firstRungIndex].$1 * fullSequence[firstRungIndex].$2 >
+            maxDirectDecodePixels) {
+      firstRungIndex++;
     }
+    final (width, height) = fullSequence[firstRungIndex];
+    final outputLevels = fullSequence.sublist(firstRungIndex);
 
-    final outputLevels = _levelDimensions(width, height, minPyramidDimension);
     final tracker = _ProgressTracker(
       onProgress,
       outputLevels.length,
@@ -496,7 +558,7 @@ class TiffDisplayOptimizer {
       firstRungRgba: rgba,
       width: width,
       height: height,
-      minPyramidDimension: minPyramidDimension,
+      laterLevels: outputLevels.sublist(1),
       tileSize: tileSize,
       compression: compression,
       tracker: tracker,
@@ -506,15 +568,17 @@ class TiffDisplayOptimizer {
   /// The shared tail of [optimizeLargeSourcePyramidLevels] and
   /// [optimizeLargeSourcePyramidLevelsParallel] once each has its own
   /// first rung's pixels in hand ([firstRungRgba], `width x height`) —
-  /// halves it down to [minPyramidDimension] the same in-memory way
-  /// [optimize] does for every rung after its own first, then encodes
-  /// every rung into one TIFF. The two callers differ only in *how* they
-  /// got [firstRungRgba]; everything from here on is identical.
+  /// halves it down through each of [laterLevels] in turn (already
+  /// resolved by the caller, from [minPyramidDimension] or an explicit
+  /// `levelCount`) the same in-memory way [optimize] does for every rung
+  /// after its own first, then encodes every rung into one TIFF. The two
+  /// callers differ only in *how* they got [firstRungRgba] and
+  /// [laterLevels]; everything from here on is identical.
   static Uint8List _buildPyramidFromFirstRung({
     required Uint8List firstRungRgba,
     required int width,
     required int height,
-    required int minPyramidDimension,
+    required List<(int, int)> laterLevels,
     required int tileSize,
     required int compression,
     required _ProgressTracker tracker,
@@ -525,9 +589,7 @@ class TiffDisplayOptimizer {
     ];
     var outputIndex = 1;
 
-    while (math.max(width, height) > minPyramidDimension) {
-      final nextWidth = math.max(1, width ~/ 2);
-      final nextHeight = math.max(1, height ~/ 2);
+    for (final (nextWidth, nextHeight) in laterLevels) {
       final sourceUnits = width * height;
       rgba = ImageResampler.downsampleRgba8(
         rgba,
@@ -575,6 +637,27 @@ class TiffDisplayOptimizer {
   ) {
     final dims = [(width, height)];
     while (math.max(width, height) > minPyramidDimension) {
+      width = math.max(1, width ~/ 2);
+      height = math.max(1, height ~/ 2);
+      dims.add((width, height));
+    }
+    return dims;
+  }
+
+  /// The base -> ... halving sequence like [_levelDimensions], but stopping
+  /// once exactly [count] entries have been produced (starting from
+  /// `(width, height)` itself) instead of at a size threshold — how
+  /// `levelCount` is turned into concrete dimensions everywhere it's
+  /// accepted. Stops early, short of [count] entries, once a `1x1` rung is
+  /// reached — halving further would just repeat it, which a caller asking
+  /// for more levels than a page can actually support gets no benefit from.
+  static List<(int, int)> _levelDimensionsForCount(
+    int width,
+    int height,
+    int count,
+  ) {
+    final dims = [(width, height)];
+    for (var i = 1; i < count && !(width == 1 && height == 1); i++) {
       width = math.max(1, width ~/ 2);
       height = math.max(1, height ~/ 2);
       dims.add((width, height));

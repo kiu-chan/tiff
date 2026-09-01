@@ -155,6 +155,28 @@ void main() {
       },
     );
 
+    test(
+      'levelCount builds exactly that many rungs, overriding minPyramidDimension',
+      () {
+        final source = _sourcePage(width: 32, height: 32);
+
+        final optimized = TiffDecoder.decode(
+          TiffDisplayOptimizer.optimize(
+            source,
+            mode: TiffOptimizationMode.tiledPyramid,
+            tileSize: 16,
+            minPyramidDimension: 512, // would otherwise yield a single rung
+            levelCount: 3,
+          ),
+        );
+
+        final dims = optimized.images
+            .map((i) => (i.metadata.width, i.metadata.height))
+            .toList();
+        expect(dims, [(32, 32), (16, 16), (8, 8)]);
+      },
+    );
+
     test('a tile larger than the page is padded, not rejected', () {
       final source = _sourcePage(width: 8, height: 8);
       final optimized = TiffDecoder.decode(
@@ -356,7 +378,69 @@ void main() {
       },
     );
 
+    test('levelCount counts only the smaller rungs for pyramidLevelsOnly', () {
+      final source = _sourcePage(width: 32, height: 32);
+
+      final optimized = TiffDecoder.decode(
+        TiffDisplayOptimizer.optimize(
+          source,
+          mode: TiffOptimizationMode.pyramidLevelsOnly,
+          tileSize: 16,
+          levelCount: 2,
+        ),
+      );
+
+      final dims = optimized.images
+          .map((i) => (i.metadata.width, i.metadata.height))
+          .toList();
+      expect(dims, [(16, 16), (8, 8)]);
+    });
+
+    test('rejects a non-positive levelCount', () {
+      final source = _sourcePage(width: 32, height: 32);
+      expect(
+        () => TiffDisplayOptimizer.optimize(source, levelCount: 0),
+        throwsArgumentError,
+      );
+    });
+
+    test(
+      'rejects a levelCount that leaves no smaller pyramidLevelsOnly rung',
+      () {
+        final source = _sourcePage(width: 1, height: 1);
+        expect(
+          () => TiffDisplayOptimizer.optimize(
+            source,
+            mode: TiffOptimizationMode.pyramidLevelsOnly,
+            levelCount: 3,
+          ),
+          throwsArgumentError,
+        );
+      },
+    );
+
     group('optimizeLargeSourcePyramidLevels', () {
+      test(
+        'levelCount overrides minPyramidDimension here too',
+        () {
+          final source = _sourcePage(width: 64, height: 64);
+
+          final optimized = TiffDecoder.decode(
+            TiffDisplayOptimizer.optimizeLargeSourcePyramidLevels(
+              source,
+              tileSize: 16,
+              minPyramidDimension: 512, // would otherwise reject outright
+              levelCount: 3,
+              maxDirectDecodePixels: 64 * 64,
+            ),
+          );
+          final dims = optimized.images
+              .map((i) => (i.metadata.width, i.metadata.height))
+              .toList();
+          expect(dims, [(32, 32), (16, 16), (8, 8)]);
+        },
+      );
+
       test(
         'with a generous maxDirectDecodePixels, matches pyramidLevelsOnly exactly',
         () {
@@ -596,6 +680,31 @@ void main() {
               sequential.images[i].decodeRgba8(),
             );
           }
+        });
+
+        test('levelCount overrides minPyramidDimension here too', () async {
+          const width = 64, height = 64;
+          final path = _writeSourceFixture(
+            tempDir,
+            width: width,
+            height: height,
+          );
+
+          final bytes =
+              await TiffDisplayOptimizer.optimizeLargeSourcePyramidLevelsParallel(
+                _sourcePage(width: width, height: height),
+                path,
+                tileSize: 16,
+                minPyramidDimension: 512,
+                levelCount: 3,
+                maxDirectDecodePixels: width * height,
+                workerCount: 2,
+              );
+          final optimized = TiffDecoder.decode(bytes);
+          final dims = optimized.images
+              .map((i) => (i.metadata.width, i.metadata.height))
+              .toList();
+          expect(dims, [(32, 32), (16, 16), (8, 8)]);
         });
 
         test('workerCount and maxBandBytes are both optional', () async {

@@ -1,3 +1,29 @@
+## 0.5.2
+
+- `BandedDownsampler.downsampleParallel` and
+  `TiffDisplayOptimizer.optimizeLargeSourcePyramidLevelsParallel`'s
+  `workerCount` and `maxBandBytes` are now optional (`int?`) instead of
+  required — and the *library* itself resolves them when left unset, via
+  `TiffAutoDecodeBudget.recommend` reading actual idle system memory and CPU
+  count internally, rather than leaving that to be reimplemented by every
+  caller. Pass either explicitly to override just that one; the other still
+  comes from the same recommended budget unless it's overridden too.
+- New `levelCount` parameter on `TiffDisplayOptimizer.optimize`,
+  `optimizeLargeSourcePyramidLevels`, and
+  `optimizeLargeSourcePyramidLevelsParallel`: build exactly this many
+  pyramid rungs instead of deriving the count from `minPyramidDimension`
+  (`minPyramidDimension` is still what picks the count when `levelCount` is
+  left unset, the existing default behavior — already a sensible "auto"
+  choice, since it stops at a rung small enough to display smoothly
+  without any further downsampling at read time). For
+  `TiffOptimizationMode.tiledPyramid` this includes the base resolution
+  itself; for `TiffOptimizationMode.pyramidLevelsOnly` and the two
+  large-source functions (which never re-encode the base) it counts only
+  the smaller rungs — either way, the same number
+  `TiffOptimizeProgress.levelCount` reports. Throws `ArgumentError` if it
+  isn't `> 0`, or if it's small enough to leave no smaller rung to build
+  where a mode requires at least one.
+
 ## 0.5.1
 
 - Faster `TiffDisplayOptimizer.optimize`/`optimizeLargeSourcePyramidLevels`,
@@ -43,10 +69,7 @@
   takes) differs. Both are purely additive — the existing synchronous
   `downsample`/`optimizeLargeSourcePyramidLevels` are unchanged and still
   the right choice for a source small enough that isolate-spawn overhead
-  wouldn't pay for itself. `workerCount` and `maxBandBytes` are both
-  optional on the two new functions — leave either (or both) unset to have
-  `TiffAutoDecodeBudget.recommend` size them from actual idle system memory
-  and CPU count, or pass either to override just that one.
+  wouldn't pay for itself.
 - Small, safe decode-side speedups in the same spirit as the encode-side
   ones above: `ChunkDecoder`'s per-row unpack now bulk-copies into its
   output buffer instead of a per-element loop; `PixelUnpacker.unpackRow`
