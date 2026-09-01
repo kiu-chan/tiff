@@ -5,6 +5,7 @@ import 'dart:typed_data';
 
 import '../image/tiff_image.dart';
 import '../io/file_byte_source.dart';
+import '../io/tiff_auto_decode_budget.dart';
 import '../region/tiff_region.dart';
 import '../tiff_decoder.dart';
 import '../tiff_exception.dart';
@@ -145,6 +146,16 @@ class BandedDownsampler {
   /// different workers can complete in any order, so it only ever means
   /// "how many of the total are done so far", not "which specific one".
   ///
+  /// [maxBandBytes] and [workerCount] are both optional — leave either (or
+  /// both) unset to have [TiffAutoDecodeBudget.recommend] pick it from
+  /// actual idle system memory and CPU count, the same way
+  /// [TiffParallelDecoder.decodeBanded] does when left to its own defaults.
+  /// Pass either explicitly to override just that one; the other still
+  /// comes from the same recommended budget unless it's overridden too, so
+  /// a caller that only wants to cap worker count (say, to leave a core
+  /// free for the rest of the app) doesn't have to also work out a matching
+  /// per-band byte budget by hand.
+  ///
   /// [setUpIsolate], if given, must be a **static or top-level function
   /// reference** (not a closure over local state, which can't cross an
   /// isolate boundary) — e.g. `TiffImageAdapter.enableJpegSupport`, needed
@@ -154,24 +165,26 @@ class BandedDownsampler {
     required int dstWidth,
     required int dstHeight,
     int pageIndex = 0,
-    int maxBandBytes = 128 * 1024 * 1024,
-    required int workerCount,
+    int? maxBandBytes,
+    int? workerCount,
     void Function()? setUpIsolate,
     void Function(int bandIndex, int bandCount, int bandSrcRows)? onBand,
   }) async {
     if (dstWidth <= 0 || dstHeight <= 0) {
       throw ArgumentError('dstWidth and dstHeight must be > 0');
     }
-    if (maxBandBytes <= 0) {
-      throw ArgumentError('maxBandBytes must be > 0');
+    if (maxBandBytes != null && maxBandBytes <= 0) {
+      throw ArgumentError.value(maxBandBytes, 'maxBandBytes', 'must be > 0');
     }
-    if (workerCount <= 0) {
+    if (workerCount != null && workerCount <= 0) {
       throw ArgumentError.value(workerCount, 'workerCount', 'must be > 0');
     }
 
     final metadataSource = FileByteSource.open(File(filePath));
     final int srcWidth;
     final int srcHeight;
+    final int resolvedMaxBandBytes;
+    final int resolvedWorkerCount;
     try {
       final document = TiffDecoder.decodeSource(metadataSource);
       if (pageIndex < 0 || pageIndex >= document.images.length) {
@@ -184,6 +197,14 @@ class BandedDownsampler {
       final metadata = document.images[pageIndex].metadata;
       srcWidth = metadata.width;
       srcHeight = metadata.height;
+      if (maxBandBytes == null || workerCount == null) {
+        final budget = TiffAutoDecodeBudget.recommend(metadata);
+        resolvedMaxBandBytes = maxBandBytes ?? budget.maxBytesPerChunk;
+        resolvedWorkerCount = workerCount ?? budget.workerCount;
+      } else {
+        resolvedMaxBandBytes = maxBandBytes;
+        resolvedWorkerCount = workerCount;
+      }
     } finally {
       metadataSource.close();
     }
@@ -214,7 +235,7 @@ class BandedDownsampler {
     }
 
     final bytesPerSrcRow = srcWidth * 4;
-    final maxRowsPerBand = math.max(1, maxBandBytes ~/ bytesPerSrcRow);
+    final maxRowsPerBand = math.max(1, resolvedMaxBandBytes ~/ bytesPerSrcRow);
     final sx0 = List<int>.generate(
       dstWidth,
       (ox) => _spanStart(ox, dstWidth, srcWidth),
@@ -225,8 +246,8 @@ class BandedDownsampler {
     );
     final plan = _planBands(dstHeight, srcHeight, maxRowsPerBand);
 
-    final effectiveWorkerCount = workerCount < plan.length
-        ? workerCount
+    final effectiveWorkerCount = resolvedWorkerCount < plan.length
+        ? resolvedWorkerCount
         : plan.length;
     final bandsByWorker = List.generate(effectiveWorkerCount, (_) => <int>[]);
     for (var i = 0; i < plan.length; i++) {

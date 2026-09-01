@@ -174,6 +174,30 @@ void main() {
     );
 
     test(
+      'workerCount and maxBandBytes are both optional — omitting them still works and matches sequential',
+      () async {
+        const width = 32, height = 32;
+        final path = _writeSourceFixture(tempDir, width, height);
+        final sequential = BandedDownsampler.downsample(
+          _sourcePage(width, height),
+          dstWidth: 16,
+          dstHeight: 16,
+        );
+
+        // Neither workerCount nor maxBandBytes given — both should fall
+        // back to TiffAutoDecodeBudget.recommend internally rather than
+        // throwing or hanging.
+        final parallel = await BandedDownsampler.downsampleParallel(
+          filePath: path,
+          dstWidth: 16,
+          dstHeight: 16,
+        );
+
+        expect(parallel, sequential);
+      },
+    );
+
+    test(
       'matches for a non-power-of-two ratio with a tight maxBandBytes (many small, interleaved bands)',
       () async {
         const width = 40, height = 40;

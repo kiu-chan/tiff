@@ -598,6 +598,35 @@ void main() {
           }
         });
 
+        test('workerCount and maxBandBytes are both optional', () async {
+          const width = 64, height = 64;
+          final path = _writeSourceFixture(tempDir, width: width, height: height);
+          final sequential = TiffDecoder.decode(
+            TiffDisplayOptimizer.optimizeLargeSourcePyramidLevels(
+              _sourcePage(width: width, height: height),
+              tileSize: 16,
+              minPyramidDimension: 8,
+              maxDirectDecodePixels: 16 * 16,
+            ),
+          );
+
+          // Neither given — should fall back to TiffAutoDecodeBudget.recommend
+          // internally rather than throwing.
+          final parallelBytes = await TiffDisplayOptimizer.optimizeLargeSourcePyramidLevelsParallel(
+            _sourcePage(width: width, height: height),
+            path,
+            tileSize: 16,
+            minPyramidDimension: 8,
+            maxDirectDecodePixels: 16 * 16,
+          );
+          final parallel = TiffDecoder.decode(parallelBytes);
+
+          expect(parallel.images.length, sequential.images.length);
+          for (var i = 0; i < parallel.images.length; i++) {
+            expect(parallel.images[i].decodeRgba8(), sequential.images[i].decodeRgba8());
+          }
+        });
+
         test(
           'onProgress reports banded decode, downsample, and encode updates ending at fraction 1.0',
           () async {

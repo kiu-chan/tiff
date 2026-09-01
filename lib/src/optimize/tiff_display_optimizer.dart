@@ -407,18 +407,17 @@ class TiffDisplayOptimizer {
   /// case) — this doesn't (and safely can't) verify that for you, since
   /// nothing here re-opens [filePath] on this isolate to check.
   ///
-  /// [workerCount] and [setUpIsolate] are forwarded to
-  /// [BandedDownsampler.downsampleParallel] as-is — see its doc comment,
-  /// especially for what a static/top-level-only [setUpIsolate] means if
-  /// [page]'s source needs one (e.g. JPEG-compressed: pass
-  /// `TiffImageAdapter.enableJpegSupport`). Picking a sensible [workerCount]
-  /// (and a [maxBandBytes] that keeps `workerCount * maxBandBytes` within
-  /// whatever memory budget is actually available) is the caller's call —
-  /// this makes no assumption about how many cores or how much memory is
-  /// safe to use at once, mirroring [BandedDownsampler.downsampleParallel]'s
-  /// own philosophy (see its doc comment) and
-  /// `TiffAutoDecodeBudget.recommend`, a ready-made way to derive both from
-  /// actual idle system memory and CPU count.
+  /// [workerCount], [maxBandBytes], and [setUpIsolate] are forwarded to
+  /// [BandedDownsampler.downsampleParallel] as-is — see its doc comment.
+  /// In particular, [workerCount]/[maxBandBytes] are both optional: leave
+  /// either (or both) unset to have `TiffAutoDecodeBudget.recommend` pick
+  /// it from actual idle system memory and CPU count rather than guessing a
+  /// fixed number, or pass either explicitly to cap just that one yourself
+  /// (e.g. to leave a core free for the rest of your app) without also
+  /// having to work out a matching byte budget by hand. See
+  /// [BandedDownsampler.downsampleParallel]'s doc comment for what a
+  /// static/top-level-only [setUpIsolate] means if [page]'s source needs
+  /// one (e.g. JPEG-compressed: pass `TiffImageAdapter.enableJpegSupport`).
   ///
   /// See [optimizeLargeSourcePyramidLevels] for what every other parameter
   /// does and which conditions throw [ArgumentError] — identical here.
@@ -430,8 +429,8 @@ class TiffDisplayOptimizer {
     int minPyramidDimension = 512,
     int compression = 8,
     int maxDirectDecodePixels = 64 * 1000 * 1000,
-    int maxBandBytes = 128 * 1024 * 1024,
-    required int workerCount,
+    int? maxBandBytes,
+    int? workerCount,
     void Function()? setUpIsolate,
     void Function(TiffOptimizeProgress)? onProgress,
   }) async {
@@ -444,8 +443,11 @@ class TiffDisplayOptimizer {
     if (maxDirectDecodePixels <= 0) {
       throw ArgumentError('maxDirectDecodePixels must be > 0');
     }
-    if (maxBandBytes <= 0) {
-      throw ArgumentError('maxBandBytes must be > 0');
+    if (maxBandBytes != null && maxBandBytes <= 0) {
+      throw ArgumentError.value(maxBandBytes, 'maxBandBytes', 'must be > 0');
+    }
+    if (workerCount != null && workerCount <= 0) {
+      throw ArgumentError.value(workerCount, 'workerCount', 'must be > 0');
     }
 
     final baseWidth = page.metadata.width;

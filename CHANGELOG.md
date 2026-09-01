@@ -43,7 +43,10 @@
   takes) differs. Both are purely additive — the existing synchronous
   `downsample`/`optimizeLargeSourcePyramidLevels` are unchanged and still
   the right choice for a source small enough that isolate-spawn overhead
-  wouldn't pay for itself.
+  wouldn't pay for itself. `workerCount` and `maxBandBytes` are both
+  optional on the two new functions — leave either (or both) unset to have
+  `TiffAutoDecodeBudget.recommend` size them from actual idle system memory
+  and CPU count, or pass either to override just that one.
 - Small, safe decode-side speedups in the same spirit as the encode-side
   ones above: `ChunkDecoder`'s per-row unpack now bulk-copies into its
   output buffer instead of a per-element loop; `PixelUnpacker.unpackRow`
