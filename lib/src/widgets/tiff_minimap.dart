@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
@@ -52,6 +53,15 @@ class TiffMinimap extends StatelessWidget {
   final Color backgroundColor;
   final Color viewportRectColor;
 
+  /// Whether a caption along the bottom shows the current zoom — as a
+  /// percentage of the page's native size — and [levelLabel].
+  final bool showZoomLabel;
+
+  /// Text for the caption's right-hand side at a given zoom (screen pixels
+  /// per base pixel), e.g. the pyramid level a viewer is showing; null or
+  /// returning null shows the zoom alone.
+  final String? Function(double scale)? levelLabel;
+
   /// Called with an image-space point when the user taps or drags on the
   /// minimap, wanting to jump the viewer there. Left unset, [controller] is
   /// updated directly — recentering the viewer on that point at its current
@@ -71,8 +81,22 @@ class TiffMinimap extends StatelessWidget {
     this.borderColor = const Color(0xB3FFFFFF),
     this.backgroundColor = const Color(0x73000000),
     this.viewportRectColor = const Color(0xFFFF5252),
+    this.showZoomLabel = true,
+    this.levelLabel,
     this.onNavigate,
   });
+
+  /// [scale] as a percentage of the page's native size, with more decimals
+  /// the further out it is — a gigapixel page fits a screen at well under 1%.
+  static String formatZoom(double scale) {
+    final percent = scale * 100;
+    final digits = percent >= 10
+        ? 0
+        : percent >= 1
+        ? 1
+        : 2;
+    return '${percent.toStringAsFixed(digits)}%';
+  }
 
   Size get _baseSize => Size(baseWidth.toDouble(), baseHeight.toDouble());
 
@@ -129,62 +153,138 @@ class TiffMinimap extends StatelessWidget {
             )
           : AnimatedBuilder(
               animation: controller,
-              builder: (context, _) => FittedBox(
-                fit: BoxFit.contain,
-                child: SizedBox(
-                  width: baseSize.width,
-                  height: baseSize.height,
-                  child: GestureDetector(
-                    onTapUp: (d) => _navigateTo(d.localPosition),
-                    onPanUpdate: (d) => _navigateTo(d.localPosition),
-                    child: Stack(
-                      children: [
-                        SizedBox(
-                          width: baseSize.width,
-                          height: baseSize.height,
-                          // fit: BoxFit.fill is required — RawImage with no
-                          // `fit` paints at the image's own native pixel
-                          // size instead of stretching to width/height, so
-                          // without it a small overview (typically far
-                          // smaller than baseWidth x baseHeight) renders as
-                          // a near-invisible speck in the middle of this
-                          // box rather than filling it.
-                          child: RawImage(
-                            image: overview,
-                            width: baseSize.width,
-                            height: baseSize.height,
-                            fit: BoxFit.fill,
-                          ),
-                        ),
-                        CustomPaint(
-                          size: baseSize,
-                          painter: _ViewportRectPainter(
-                            _visibleImageRect(controller.value),
-                            viewportRectColor,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
+              builder: (context, _) => Stack(
+                fit: StackFit.expand,
+                children: [
+                  _buildImage(baseSize),
+                  if (showZoomLabel) _buildCaption(controller.value),
+                ],
               ),
             ),
     );
   }
+
+  Widget _buildCaption(Matrix4 transform) {
+    final scale = transform.getMaxScaleOnAxis();
+    final level = levelLabel?.call(scale);
+    const style = TextStyle(
+      color: Color(0xFFFFFFFF),
+      fontSize: 10,
+      fontWeight: FontWeight.w600,
+      height: 1.2,
+    );
+    return Align(
+      alignment: Alignment.bottomCenter,
+      // Tap and drag reach the image underneath.
+      child: IgnorePointer(
+        child: ColoredBox(
+          color: const Color(0x99000000),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+            child: Row(
+              children: [
+                Text(formatZoom(scale), style: style),
+                const Spacer(),
+                if (level != null)
+                  Flexible(
+                    flex: 4,
+                    child: Text(
+                      level,
+                      style: style,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildImage(Size baseSize) {
+    return FittedBox(
+      fit: BoxFit.contain,
+      child: SizedBox(
+        width: baseSize.width,
+        height: baseSize.height,
+        child: GestureDetector(
+          onTapUp: (d) => _navigateTo(d.localPosition),
+          onPanUpdate: (d) => _navigateTo(d.localPosition),
+          child: Stack(
+            children: [
+              SizedBox(
+                width: baseSize.width,
+                height: baseSize.height,
+                // fit: BoxFit.fill is required — RawImage with no
+                // `fit` paints at the image's own native pixel
+                // size instead of stretching to width/height, so
+                // without it a small overview (typically far
+                // smaller than baseWidth x baseHeight) renders as
+                // a near-invisible speck in the middle of this
+                // box rather than filling it.
+                child: RawImage(
+                  image: overview,
+                  width: baseSize.width,
+                  height: baseSize.height,
+                  fit: BoxFit.fill,
+                ),
+              ),
+              CustomPaint(
+                size: baseSize,
+                painter: _ViewportRectPainter(
+                  _visibleImageRect(controller.value),
+                  viewportRectColor,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
+/// Marks the visible region: the rest of the page dimmed, the region tinted
+/// and outlined. Painted in base-image coordinates, scaled down with the
+/// image.
 class _ViewportRectPainter extends CustomPainter {
   final Rect rect;
   final Color color;
   _ViewportRectPainter(this.rect, this.color);
 
+  /// Smallest marker drawn, as a share of the minimap's longer side — deep
+  /// in, the true region is a speck well under a pixel.
+  static const _minMarkerFraction = 1 / 24;
+
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = color
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = (size.longestSide / 150).clamp(1.0, 40.0);
-    canvas.drawRect(rect, paint);
+    final whole = Offset.zero & size;
+    final minSide = size.longestSide * _minMarkerFraction;
+    final marker = Rect.fromCenter(
+      center: rect.center,
+      width: math.max(rect.width, minSide),
+      height: math.max(rect.height, minSide),
+    );
+    if (!marker.contains(whole.topLeft) ||
+        !marker.contains(whole.bottomRight - const Offset(1, 1))) {
+      canvas.drawPath(
+        Path()
+          ..fillType = PathFillType.evenOdd
+          ..addRect(whole)
+          ..addRect(marker),
+        Paint()..color = const Color(0x59000000),
+      );
+      canvas.drawRect(marker, Paint()..color = color.withValues(alpha: 0.2));
+    }
+    canvas.drawRect(
+      marker,
+      Paint()
+        ..color = color
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = (size.longestSide / 100).clamp(1.0, double.infinity),
+    );
   }
 
   @override

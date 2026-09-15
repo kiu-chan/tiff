@@ -243,6 +243,14 @@ class ChunkDecoder {
   static Uint8List _mergeJpegTables(Uint8List tables, Uint8List strip) =>
       _stitchJpegStream([strip], tables);
 
+  /// [chunk] — one self-contained, possibly abbreviated JPEG strip/tile —
+  /// with the page's shared [jpegTables] merged in, as a stream any JPEG
+  /// decoder can read on its own.
+  static Uint8List standaloneJpeg(Uint8List chunk, Uint8List? jpegTables) =>
+      jpegTables == null || jpegTables.isEmpty
+      ? chunk
+      : _mergeJpegTables(jpegTables, chunk);
+
   /// Reassembles one continuous JPEG stream (SOI + optional shared tables +
   /// every chunk's own bytes, in order, + EOI) out of [chunks] — an
   /// abbreviated JPEGTables stream (if any) and each chunk's own SOI/EOI

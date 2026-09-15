@@ -1,3 +1,61 @@
+## 1.0.0
+
+- `TiffImage.readTileJpeg(tileX, tileY)`: a JPEG-tiled page's tile as one
+  standalone JPEG stream (shared JPEGTables merged in, an Adobe marker added
+  for RGB photometric), for handing to a platform codec without decoding.
+
+- New optional Flutter viewer, `TiffImageView` (`package:tiff/tiff_viewer.dart`):
+  a pannable, zoomable view of a TIFF/BigTIFF page of any size, modeled on
+  `package:svs`'s slide viewer. Only on-screen tiles are decoded, on a pool
+  of background isolates (`workerCount`), into a byte-bounded LRU cache
+  (`cacheBytes`); painting happens in screen space and visits only
+  on-screen tiles, so a multi-gigapixel page pans as smoothly as a small one.
+  - Only the pyramid rung matching the zoom is loaded, picked against
+    physical pixels (`devicePixelRatio`) so high-density screens stay sharp,
+    and shrunk in the worker with a box filter to match the screen. Pages
+    that are smaller copies of the base page are detected automatically,
+    including rungs padded out to whole tiles (as Philips scanners write
+    them), which are aligned by their true power-of-two downsample rather
+    than stretched; label/macro images are ignored. `pyramidLevelsPath` adds
+    a sidecar of extra rungs such as
+    `TiffDisplayOptimizer.optimizeLargeSourcePyramidLevels` output. While a
+    rung loads, a small preview and every cached rung in view are painted
+    underneath, coarsest first, so zooming sharpens step by step instead of
+    reloading. A
+    pyramid that stops short of 4096 pixels gets a box-filtered overview as
+    its coarsest level.
+  - Zoomed out on a page with too shallow a pyramid, tiles are merged into
+    composites and downscaled in the worker before reaching the GPU, so tile
+    count and texture memory follow the screen, not the page.
+  - JPEG-tiled rungs (8-bit YCbCr/RGB/grayscale, as whole-slide scanners
+    write them) are decoded like svs does: workers only read each tile's
+    JPEG stream, and `dart:ui`'s platform codec decodes it at up to 1/8
+    scale — about 20x faster than a full Dart decode — with composites
+    assembled row by row, as many in parallel as there are CPU cores. A
+    pyramid-less multi-gigapixel JPEG page first shows a soft color-map
+    preview built from sampled tiles, then sharpens from the center out.
+  - Strip-organized pages are served as strip-aligned bands (at most 4096
+    pixels per side, inside GPU texture limits), so no strip is
+    decompressed more often than needed.
+  - `brightness`/`contrast`/`gamma` are baked into decoded tiles; on change,
+    old pixels stay visible until the adjusted ones arrive.
+  - The view is held in a `TransformationController` (`controller`) that
+    works with `TiffMinimap` and app overlays; `initialView` starts from the
+    whole page or a centered `TiffInitialView` region;
+    `TiffImageViewState.resetView` fits the page again; `setUpIsolate`
+    enables JPEG decoding in workers; `onError` reports unreadable files.
+    Pinch, drag, and mouse-wheel zoom are built in, and decoded tiles are
+    dropped on OS memory pressure.
+  - The built-in minimap sharpens as tiles load: its thumbnail is redrawn
+    (at most every 400ms) from the preview plus every tile loaded so far,
+    keeping detail from tiles already evicted, and its caption shows the
+    zoom and the pyramid level on screen (e.g. `50%` · `L1 · 1/2`).
+
+- `TiffMinimap`: a caption with the zoom percentage (`showZoomLabel`, on by
+  default) and optional `levelLabel`; the visible region is tinted with the
+  rest of the page dimmed, and never shrinks below a visible marker when
+  zoomed far in. New `TiffMinimap.formatZoom`.
+
 ## 0.5.2
 
 - `BandedDownsampler.downsampleParallel` and

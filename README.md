@@ -43,6 +43,10 @@ kilobytes to multi-gigabyte BigTIFF rasters.
 - An optional Flutter minimap widget (`package:tiff/tiff_minimap.dart`,
   `TiffMinimap`) — a decode-agnostic overview-with-viewport-rectangle for
   panning/zooming a large page
+- An optional Flutter viewer (`package:tiff/tiff_viewer.dart`,
+  `TiffImageView`) that pans and zooms a page of any size smoothly: only
+  on-screen tiles are decoded, on background isolates, at the pyramid rung
+  matching the zoom
 
 ## Limitations
 
@@ -65,7 +69,7 @@ kilobytes to multi-gigabyte BigTIFF rasters.
 
 ```yaml
 dependencies:
-  tiff: ^0.5.0
+  tiff: ^1.0.0
 ```
 
 ## Usage
@@ -270,9 +274,15 @@ Widget buildMinimap(ui.Image? overview, int baseWidth, int baseHeight, Transform
     baseHeight: baseHeight,
     controller: controller,
     viewportSize: viewportSize,
+    // Optional: the caption shows the zoom, plus this on its right.
+    levelLabel: (scale) => scale < 0.5 ? 'overview' : 'full',
   );
 }
 ```
+
+The visible region is tinted, with the rest of the page dimmed; far zoomed
+in, it's still drawn as a small marker. `showZoomLabel: false` hides the
+caption.
 
 Note: unlike `package:image`, adding `package:tiff/tiff_minimap.dart`'s
 `flutter` dependency to this package's own `pubspec.yaml` means a plain-Dart
@@ -280,6 +290,50 @@ project (no Flutter SDK) can no longer depend on `package:tiff` at all, even
 if it never imports this entry point — Flutter SDK dependencies can't be
 made conditional the way a large but ordinary package like `package:image`
 can.
+
+### Optional: Flutter viewer for large pages
+
+Import `package:tiff/tiff_viewer.dart` for `TiffImageView`, a pannable,
+zoomable view of a TIFF/BigTIFF page of any size — the same approach as
+`package:svs`'s slide viewer:
+
+- Only the tiles on screen are decoded, on a pool of background isolates,
+  and kept in a byte-bounded LRU cache.
+- Only the pyramid rung matching the current zoom and the screen's pixel
+  density is loaded, box-filtered in the worker to match the screen (pages
+  that are smaller copies of the base page are detected automatically —
+  including rungs padded to whole tiles — plus an optional sidecar from
+  `TiffDisplayOptimizer.optimizeLargeSourcePyramidLevels`). Already-cached
+  rungs and a small preview are painted underneath while it loads, so
+  zooming sharpens a preview instead of flashing blank.
+- Zoomed out on a page with too shallow a pyramid, tiles are merged into
+  composites downscaled in the worker, so memory follows the screen size.
+- JPEG-tiled pages (whole-slide scans) are decoded by the platform codec at
+  up to 1/8 scale (via `TiffImage.readTileJpeg`), so even a pyramid-less
+  multi-gigapixel scan fills a zoomed-out view quickly.
+- Strip-organized pages are served as strip-aligned bands.
+
+```dart
+import 'package:flutter/material.dart';
+import 'package:tiff/tiff_image_adapter.dart';
+import 'package:tiff/tiff_viewer.dart';
+
+Widget buildViewer(String path, TransformationController controller) {
+  return SizedBox(
+    height: 480,
+    child: TiffImageView(
+      filePath: path,
+      controller: controller, // optional: read/set the view for overlays
+      setUpIsolate: TiffImageAdapter.enableJpegSupport, // JPEG-compressed files
+      pyramidLevelsPath: null, // optional sidecar with extra, smaller rungs
+      brightness: 0, // contrast/gamma too; re-rendered when they change
+      onError: (error) => debugPrint('$error'),
+    ),
+  );
+}
+```
+
+`TiffImageView` reads files with `dart:io`, so it isn't available on the web.
 
 ## Example app
 

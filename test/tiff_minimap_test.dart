@@ -122,6 +122,40 @@ void main() {
     expect(updatedRect, isNot(equals(initialRect)));
   });
 
+  testWidgets('the caption shows the zoom and the level label', (tester) async {
+    final overview = await _solidImage(tester, 32, 32, 0, 0, 255);
+    final controller = TransformationController();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Center(
+          child: TiffMinimap(
+            overview: overview,
+            baseWidth: 1000,
+            baseHeight: 1000,
+            controller: controller,
+            viewportSize: const Size(400, 300),
+            levelLabel: (scale) => scale < 1 ? 'coarse' : 'sharp',
+          ),
+        ),
+      ),
+    );
+    expect(find.text('100%'), findsOneWidget);
+    expect(find.text('sharp'), findsOneWidget);
+
+    controller.value = Matrix4.identity()
+      ..scaleByDouble(0.004, 0.004, 0.004, 1);
+    await tester.pump();
+    expect(find.text('0.40%'), findsOneWidget);
+    expect(find.text('coarse'), findsOneWidget);
+  });
+
+  test('zoom is formatted with more decimals the further out it is', () {
+    expect(TiffMinimap.formatZoom(2), '200%');
+    expect(TiffMinimap.formatZoom(0.25), '25%');
+    expect(TiffMinimap.formatZoom(0.025), '2.5%');
+    expect(TiffMinimap.formatZoom(0.0012), '0.12%');
+  });
+
   testWidgets(
     'tapping the minimap re-centers the controller on that image point',
     (tester) async {
