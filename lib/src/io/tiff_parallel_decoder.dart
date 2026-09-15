@@ -48,7 +48,7 @@ class TiffParallelDecoder {
   /// per band — write a file, accumulate into a buffer, feed a progress
   /// counter — without that work itself needing to be isolate-safe. Bands
   /// from different workers can interleave, so don't assume they arrive in
-  /// increasing [TiffBand.y] order across the whole page (they do arrive in
+  /// increasing [TiffBand] `y` order across the whole page (they do arrive in
   /// order within any one worker's own share of it).
   ///
   /// [bandHeight] is the height of each delivered [TiffBand] — independent

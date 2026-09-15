@@ -36,7 +36,8 @@ enum TiffOptimizationMode {
   /// to treat as a disposable cache: typically a small fraction of the
   /// source's own size, since the (by far largest) base-resolution copy
   /// [tiledPyramid] would otherwise duplicate is never written.
-  /// [optimize] still decodes the source's full resolution into memory to
+  /// [TiffDisplayOptimizer.optimize] still decodes the source's full
+  /// resolution into memory to
   /// derive these rungs from — there's no way to downsample without it —
   /// this only changes what gets *encoded*.
   /// Throws [ArgumentError] if the page's longest side is already at or
@@ -68,18 +69,18 @@ enum TiffOptimizeStage {
 /// Progress reported by [TiffDisplayOptimizer.optimize] (or
 /// [TiffDisplayOptimizer.optimizeLargeSourcePyramidLevels]) as it works.
 ///
-/// [level] (0-based) and [levelCount] locate which pyramid rung this update
+/// `level` (0-based) and `levelCount` locate which pyramid rung this update
 /// belongs to, out of how many rungs the call will build in total —
 /// consistent across all three stages, so a rung's decode, downsample, and
-/// encode updates all carry the same [level]. [stepIndex]/[stepCount]
-/// (1-based) report progress *within* [stage] for that rung alone: the
+/// encode updates all carry the same `level`. `stepIndex`/`stepCount`
+/// (1-based) report progress *within* `stage` for that rung alone: the
 /// band number out of the total bands for [TiffOptimizeStage.decoding], or
 /// the tile number out of that rung's total tile count for
 /// [TiffOptimizeStage.encoding] (always `(1, 1)` for
 /// [TiffOptimizeStage.downsampling], which has no further sub-steps of its
 /// own).
 ///
-/// [fraction] is the overall 0..1 progress across the *whole* call — every
+/// `fraction` is the overall 0..1 progress across the *whole* call — every
 /// stage and every rung — weighted by how many pixels each phase actually
 /// touches (a banded decode of a 200-megapixel source counts for far more
 /// than compressing one of the pyramid's smaller rungs), so it tracks real
@@ -98,7 +99,7 @@ typedef TiffOptimizeProgress = ({
 /// Accumulates pixel-weighted "units" of completed work across every stage
 /// of one [TiffDisplayOptimizer.optimize]/`optimizeLargeSourcePyramidLevels`
 /// call and turns each [report] into a [TiffOptimizeProgress] with an
-/// overall [TiffOptimizeProgress.fraction] — a thin wrapper mainly so
+/// overall `fraction` — a thin wrapper mainly so
 /// neither call site has to carry a running `completedUnits` variable and
 /// re-derive the same record-building call by hand at every one of its own
 /// (several) progress call sites.
@@ -169,7 +170,7 @@ class TiffDisplayOptimizer {
   ///   resolution itself; for [TiffOptimizationMode.pyramidLevelsOnly] it
   ///   counts only the smaller rungs (never the base, which that mode
   ///   never re-encodes) — either way, the same number
-  ///   [TiffOptimizeProgress.levelCount] ends up reporting. Leave unset
+  ///   [TiffOptimizeProgress]'s `levelCount` ends up reporting. Leave unset
   ///   (the default, `null`) to keep halving down to [minPyramidDimension]
   ///   instead, which already stops at a size small enough to display
   ///   smoothly without further downsampling at read time — the right
@@ -185,7 +186,7 @@ class TiffDisplayOptimizer {
   ///   worth it for your use case.
   /// - [onProgress]: called with a [TiffOptimizeProgress] repeatedly as work
   ///   completes — see its own doc comment for what each field means and how
-  ///   [TiffOptimizeProgress.fraction] is weighted. The very first call
+  ///   its `fraction` is weighted. The very first call
   ///   isn't until after the initial whole-page decode, which for a large
   ///   page can itself take a while with nothing reported before it; when
   ///   [page] might be too big to decode as one buffer at all, use
